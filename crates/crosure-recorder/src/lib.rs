@@ -23,7 +23,7 @@ pub use chain::{canonical_json, genesis_hash, step_hash};
 pub use error::RecorderError;
 pub use step::{
     Actor, ActorKind, Attention, Intent, NewStep, Observation, ParentRef, Relation, Step, StepKind,
-    Target,
+    Target, CONTEXT_CHIP,
 };
 pub use store::{Session, Store};
 pub use verify::{VerifyFailure, VerifyReport};

@@ -83,6 +83,12 @@ pub fn export_session(state: State<'_, AppState>) -> Res<String> {
     core::export_session(&state)
 }
 
+/// Exports every verified session as a training dataset.
+#[tauri::command]
+pub fn export_dataset(state: State<'_, AppState>) -> Res<core::DatasetExport> {
+    core::export_dataset(&state)
+}
+
 /// Revisits an earlier step's result.
 #[tauri::command]
 pub fn step_outcome(state: State<'_, AppState>, step_id: String) -> Res<Outcome> {

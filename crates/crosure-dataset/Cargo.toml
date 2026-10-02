@@ -1,0 +1,24 @@
+[package]
+name = "crosure-dataset"
+description = "Crosure dataset export: verified investigation graphs as trajectories, SFT examples and DPO preference pairs (JSONL)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "crosure-export"
+path = "src/bin/crosure-export.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+crosure-recorder.workspace = true
+crosure-graph.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+rusqlite.workspace = true
+
+[lints]
+workspace = true

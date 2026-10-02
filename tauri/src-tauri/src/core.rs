@@ -144,6 +144,29 @@ pub fn export_session(state: &AppState) -> Res<String> {
     Ok(path.display().to_string())
 }
 
+/// Where a dataset export went and what it holds.
+#[derive(Serialize)]
+pub struct DatasetExport {
+    pub dir: String,
+    pub manifest: crosure_dataset::Manifest,
+}
+
+/// Writes every verified session as a training dataset (trajectories, SFT,
+/// DPO) to `home/datasets/<time>/`.
+pub fn export_dataset(state: &AppState) -> Res<DatasetExport> {
+    let store = state.store.lock().map_err(|_| "store lock poisoned")?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(err)?
+        .as_secs();
+    let dir = state.home.join("datasets").join(stamp.to_string());
+    let manifest = crosure_dataset::export(&store, &dir, &Default::default()).map_err(err)?;
+    Ok(DatasetExport {
+        dir: dir.display().to_string(),
+        manifest,
+    })
+}
+
 /// An earlier step with its stored result, for revisiting it (records nothing).
 pub fn step_outcome(state: &AppState, step_id: String) -> Res<Outcome> {
     let (store, ws) = state.both()?;

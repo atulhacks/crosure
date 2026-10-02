@@ -15,6 +15,7 @@ build:
 test:
     cargo test --workspace
     cd tauri && npm run test
+    cd python && python3 -m unittest discover -s tests
 
 # All linters.
 lint:

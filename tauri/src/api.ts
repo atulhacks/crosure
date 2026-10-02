@@ -3,6 +3,7 @@ import type {
   AgentEventPage,
   AgentSettings,
   AgentStatus,
+  DatasetExport,
   Profile,
   ProviderConfig,
   SettingsView,
@@ -78,6 +79,9 @@ export const verify = () => invoke<VerifyReport>("verify");
 
 /** Writes the session to a JSON file and returns its path. */
 export const exportSession = () => invoke<string>("export_session");
+
+/** Writes every verified session as trajectories, SFT and DPO JSONL; returns where and counts. */
+export const exportDataset = () => invoke<DatasetExport>("export_dataset");
 
 /** Re-opens an earlier step's stored result (does not record anything). */
 export const stepOutcome = (stepId: string) => invoke<Outcome>("step_outcome", { stepId });

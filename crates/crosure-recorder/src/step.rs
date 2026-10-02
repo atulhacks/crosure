@@ -96,6 +96,11 @@ pub struct Observation {
     pub truncated: bool,
 }
 
+/// Intent chip for steps taken only to give an AI prompt context (an `@`
+/// mention), not as an analysis decision. Dataset exports leave them out as
+/// training targets.
+pub const CONTEXT_CHIP: &str = "ai_context";
+
 /// Why the analyst took the step.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Intent {

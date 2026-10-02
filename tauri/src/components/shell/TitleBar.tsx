@@ -1,10 +1,10 @@
-import { Download, Moon, Search, ShieldAlert, ShieldCheck, Sparkles, Sun } from "lucide-react";
-import { useState } from "react";
+import { Moon, Search, ShieldAlert, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { shortHash } from "../../lib/format";
 import { useUi } from "../../store/ui";
 import { useWorkbench } from "../../store/workbench";
 import { Button, IconButton } from "../ui/Button";
 import { Kbd } from "../ui/Pill";
+import { ExportMenu } from "./ExportMenu";
 import { Logo } from "./Logo";
 
 /** Top bar: identity, the target, recording state, chain integrity, export. */
@@ -14,10 +14,8 @@ export function TitleBar() {
   const steps = useWorkbench((s) => s.graph?.stats.steps ?? 0);
   const replaying = useWorkbench((s) => s.upto !== null);
   const verify = useWorkbench((s) => s.verify);
-  const exportSession = useWorkbench((s) => s.exportSession);
   const close = useWorkbench((s) => s.close);
   const { theme, setTheme, setPaletteOpen, setDockTab } = useUi();
-  const [exported, setExported] = useState<string | null>(null);
 
   return (
     <header className="flex h-[var(--bar-h)] shrink-0 items-center gap-3 border-b bg-panel px-3">
@@ -88,15 +86,7 @@ export function TitleBar() {
             )}
           </Button>
         )}
-        {opened && (
-          <Button
-            variant="ghost"
-            onClick={async () => setExported(await exportSession())}
-            title={exported ?? "Export session (JSON)"}
-          >
-            <Download size={13} /> {exported ? "Exported" : "Export"}
-          </Button>
-        )}
+        {opened && <ExportMenu />}
         <IconButton
           onClick={() => setTheme(theme === "crosure-dark" ? "crosure-light" : "crosure-dark")}
           title="Toggle theme"
