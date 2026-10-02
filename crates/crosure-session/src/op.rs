@@ -23,6 +23,10 @@ pub enum Op {
     Disasm {
         target: String,
     },
+    /// Pseudo-C of a function (needs rizin + rz-ghidra).
+    Decompile {
+        target: String,
+    },
     XrefsTo {
         target: String,
     },
@@ -72,6 +76,7 @@ impl Op {
             Op::Info => StepKind::Recon,
             Op::Functions { .. } => StepKind::Functions,
             Op::Disasm { .. } => StepKind::Disasm,
+            Op::Decompile { .. } => StepKind::Decompile,
             Op::XrefsTo { .. } | Op::XrefsFrom { .. } => StepKind::Xref,
             Op::Strings { .. } => StepKind::Strings,
             Op::Imports => StepKind::Imports,
@@ -95,6 +100,7 @@ impl Op {
         let t = target.to_string();
         match self.clone() {
             Op::Disasm { .. } => Op::Disasm { target: t },
+            Op::Decompile { .. } => Op::Decompile { target: t },
             Op::XrefsTo { .. } => Op::XrefsTo { target: t },
             Op::XrefsFrom { .. } => Op::XrefsFrom { target: t },
             Op::Hex { len, .. } => Op::Hex { target: t, len },
@@ -120,6 +126,7 @@ impl Op {
                 None => "fns".into(),
             },
             Op::Disasm { target } => format!("dis {target}"),
+            Op::Decompile { target } => format!("dec {target}"),
             Op::XrefsTo { target } => format!("xt {target}"),
             Op::XrefsFrom { target } => format!("xf {target}"),
             Op::Strings { filter, .. } => match filter {

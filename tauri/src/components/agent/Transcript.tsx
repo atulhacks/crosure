@@ -18,6 +18,7 @@ const TOOL_LABEL: Record<string, string> = {
   binary_info: "info",
   list_functions: "functions",
   disassemble: "disasm",
+  decompile: "decomp",
   xrefs_to: "xrefs",
   xrefs_from: "callees",
   search_strings: "strings",

@@ -17,7 +17,8 @@ interface Item {
 export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, toggleConsole, setInvMode, setDisasmMode, setDockTab } =
     useUi();
-  const { functions, act, openTab, verify, exportSession, runConsole, opened } = useWorkbench();
+  const { functions, act, openTab, openFunction, verify, exportSession, runConsole, opened } =
+    useWorkbench();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -75,7 +76,7 @@ export function CommandPalette() {
       label: f.name,
       hint: hex(f.addr),
       icon: <FunctionSquare size={12} />,
-      run: () => act({ op: "disasm", target: hex(f.addr) }),
+      run: () => openFunction(f.addr),
     }));
     const acts = fuzzyFilter(q, actions, (x) => x.label, 20);
     const cmd: Item[] = q.trim()
@@ -89,7 +90,7 @@ export function CommandPalette() {
         ]
       : [];
     return q ? [...fns.slice(0, 12), ...acts, ...cmd] : [...acts, ...fns.slice(0, 8)];
-  }, [q, functions, actions, act, runConsole]);
+  }, [q, functions, actions, openFunction, runConsole]);
 
   useEffect(() => {
     if (paletteOpen) {

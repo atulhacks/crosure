@@ -144,6 +144,11 @@ pub fn export_session(state: &AppState) -> Res<String> {
     Ok(path.display().to_string())
 }
 
+/// Whether rizin + rz-ghidra are available for decompilation.
+pub fn decompiler_status() -> crosure_engine::DecompilerStatus {
+    crosure_engine::decompiler_status()
+}
+
 /// Where a dataset export went and what it holds.
 #[derive(Serialize)]
 pub struct DatasetExport {

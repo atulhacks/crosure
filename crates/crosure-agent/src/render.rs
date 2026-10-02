@@ -104,6 +104,14 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                 ),
             )
         }
+        "decompile" => clip(
+            rows(&r["lines"], |l| text(&l["text"]).to_string()),
+            format!(
+                "{header}\n{} @ {}:",
+                text(&r["function"]["name"]),
+                hex(&r["function"]["addr"])
+            ),
+        ),
         "xref" => {
             let names = r["names"].as_array();
             clip(

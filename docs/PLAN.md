@@ -11,13 +11,13 @@
 
 | Tier 1 item | State |
 | --- | --- |
-| 1. Open PE/ELF; functions, disasm, strings, imports, hex | Done (native engine). **Decompile pending** (rizin backend next) |
+| 1. Open PE/ELF; functions, disasm, strings, imports, hex | Done (native engine). Decompile done via rizin + rz-ghidra (optional; see `docs/decompiler.md`) |
 | 2. Console; every command and UI action recorded | Done (built-in console with r2-style aliases; rizin console comes with the rizin backend) |
 | 3. Live Investigation Canvas, tags, click-to-jump | Done (click an old step → next action branches from it) |
 | 4. Intent chips | Done |
 | 5. Hash chain + "Verify session" | Done (tamper shows the exact step) |
 | 6. Timeline replay | Done |
-| 7. Export | Session JSON done. **SFT/DPO/trajectory exporters pending** (`crosure-dataset`) |
+| 7. Export | Done: session JSON, plus `crosure-dataset` (verified trajectories, SFT, DPO) and a Python verifier/loader (`docs/datasets.md`) |
 
 **AI agent (built):**
 - `crosure-agent`: Claude reverses a binary through Crosure's own recorded
@@ -28,10 +28,15 @@
 - Not yet run against the live API from the build environment (no key there):
   the loop is tested end to end with a scripted model.
 
-Crates built so far: `crosure-recorder`, `crosure-engine`, `crosure-graph`,
-`crosure-session` (the single "run op + record step" choke point, used by
-the app and later by the agent), plus the Tauri app with a dev HTTP bridge
-for browser previews.
+Crates built so far:
+- `crosure-recorder`, `crosure-engine` and `crosure-graph`;
+- `crosure-session`: the single "run op + record step" choke point, used by
+  the app, the agent and MCP;
+- `crosure-agent` and `crosure-mcp`;
+- `crosure-dataset`.
+
+There is also the Tauri app, with a dev HTTP bridge for browser previews, and
+`python/`.
 
 ---
 

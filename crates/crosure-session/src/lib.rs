@@ -17,6 +17,7 @@
 //! ```
 
 mod console;
+mod decomp;
 mod error;
 mod op;
 mod run;

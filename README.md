@@ -58,6 +58,13 @@ cargo run -p crosure-agent --bin crosure-reverse -- ./sample "Find how the input
   functions (symbols, entry, call targets, code pointers, PLT/IAT import
   stubs, so it works on stripped binaries too), annotated disassembly,
   strings (ASCII + UTF-16LE), imports, cross-references, hex.
+- **Decompiler (optional):** a **Decompiled** tab shows pseudo-C from
+  rz-ghidra (via rizin), with your renames applied and calls you can follow.
+  Setup: [docs/decompiler.md](docs/decompiler.md).
+- **Training data:** **Export → Training dataset** (or `crosure-export`)
+  writes verified investigations as trajectories, SFT examples and DPO
+  preference pairs; `python/` verifies chains independently and loads the
+  data for training. See [docs/datasets.md](docs/datasets.md).
 - **Every action is a recorded step.** Clicking a function, following a call,
   searching strings, typing a console command (`dis main`, `xt strcmp`,
   `str http` …), renaming, adding a hypothesis or finding. Each one is a node with:
@@ -121,10 +128,12 @@ crates/
   crosure-session/    runs ops on the engine and records each one; console parser
   crosure-agent/      AI agent: providers, tools, profiles, permissions, threads; crosure-reverse CLI
   crosure-mcp/        MCP server exposing the recorded tools to other agents
+  crosure-dataset/    verified sessions -> trajectories / SFT / DPO JSONL; crosure-export CLI
+python/               stdlib-only chain verifier and dataset loader (TRL / Hugging Face formats)
 tauri/
   src/                React 19 + TypeScript frontend (Tailwind v4, React Flow, Zustand)
   src-tauri/          Tauri 2 app: thin commands over crosure-session; optional dev bridge
-docs/                overview, plan, AI agent
+docs/                overview, plan, AI agent, datasets, decompiler
 ```
 
 ## Run it
@@ -150,6 +159,7 @@ Try it on the bundled benign crackme:
 ```
 info                         binary info
 dis <fn|addr>                disassemble function
+dec <fn|addr>                decompile function (needs rizin + rz-ghidra)
 xt <fn|addr>                 xrefs to
 xf <fn|addr>                 xrefs from function
 str [filter]                 strings
@@ -162,7 +172,7 @@ find <text>                  record a finding
 verdict <malicious|benign|unknown> <family|-> <text>
 ```
 
-r2-style aliases also work (`pdf`, `axt`, `iz`, `ii`, `px`, `afn`).
+r2-style aliases also work (`pdf`, `pdg`, `axt`, `iz`, `ii`, `px`, `afn`).
 
 ## Safety
 

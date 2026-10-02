@@ -19,19 +19,28 @@ export interface DisasmResult {
 /** Follow callbacks wired to recorded ops (derived from the current view). */
 export function useFollow(): Follow {
   const act = useWorkbench((s) => s.act);
+  const openFunction = useWorkbench((s) => s.openFunction);
   const functions = useWorkbench((s) => s.functions);
   return useMemo(() => {
     const fns = new Set(functions.map((f) => f.addr));
     return {
-      fn: (a) => act({ op: "disasm", target: hex(a) }, { fromView: true }),
+      fn: (a) => openFunction(a, true),
       xrefs: (a) => act({ op: "xrefs_to", target: hex(a) }, { fromView: true }),
       isFunction: (a) => fns.has(a),
     };
-  }, [act, functions]);
+  }, [act, openFunction, functions]);
 }
 
 /** Function header: name (renameable), size, and its actions. */
-export function FunctionHeader({ fn, count }: { fn: DisasmResult["function"]; count: number }) {
+export function FunctionHeader({
+  fn,
+  count,
+  unit = "insns",
+}: {
+  fn: DisasmResult["function"];
+  count: number;
+  unit?: string;
+}) {
   const act = useWorkbench((s) => s.act);
   const [renaming, setRenaming] = useState<string | null>(null);
   const setDraft = useAgent((s) => s.setDraft);
@@ -68,7 +77,7 @@ export function FunctionHeader({ fn, count }: { fn: DisasmResult["function"]; co
         </form>
       )}
       <span className="font-mono text-xs text-muted nums">
-        {hex(fn.addr)} · {fn.size} bytes · {count} insns
+        {hex(fn.addr)} · {fn.size} bytes · {count} {unit}
       </span>
       <div className="ml-auto flex gap-1">
         <Button
