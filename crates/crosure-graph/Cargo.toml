@@ -1,0 +1,15 @@
+[package]
+name = "crosure-graph"
+description = "Crosure investigation graph: nodes and typed edges built from recorded steps, key paths, replay, stats"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+crosure-recorder.workspace = true
+
+[lints]
+workspace = true

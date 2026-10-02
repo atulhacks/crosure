@@ -1,0 +1,17 @@
+[package]
+name = "crosure-session"
+description = "Crosure session: runs analysis ops on an engine and records every one as a step"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror = "2"
+crosure-recorder.workspace = true
+crosure-engine.workspace = true
+
+[lints]
+workspace = true
