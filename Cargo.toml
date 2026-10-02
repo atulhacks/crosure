@@ -1,0 +1,56 @@
+# Crosure — Cargo workspace root.
+#
+# Members:
+#   crates/crosure-recorder  step schema, hash chain, SQLite store (no other workspace deps)
+#   crates/crosure-engine    binary analysis engine (native: object + capstone)
+#   crates/crosure-graph     investigation graph built from recorded steps
+#   tauri/src-tauri          desktop app glue (Tauri 2)
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/crosure-recorder",
+    "crates/crosure-engine",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/atulhacks/crosure"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+rusqlite = { version = "0.32", features = ["bundled"] }
+ulid = "1"
+object = "0.36"
+capstone = "0.14"
+tempfile = "3"
+crosure-recorder = { path = "crates/crosure-recorder" }
+crosure-engine = { path = "crates/crosure-engine" }
+crosure-graph = { path = "crates/crosure-graph" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+# Analysis is CPU-bound; keep dev builds usable.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
