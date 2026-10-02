@@ -75,7 +75,10 @@ export function ExportMenu() {
         detail:
           `${m.trajectories} investigations · ${m.sft_examples} SFT examples · ` +
           `${m.dpo_pairs} preference pairs` +
-          (skipped ? ` · ${skipped} skipped` : ""),
+          (skipped ? ` · ${skipped} skipped` : "") +
+          (m.sft_examples === 0
+            ? ". Training examples come from steps that lead to a finding, verdict or key step."
+            : ""),
         path: dir,
       };
     });

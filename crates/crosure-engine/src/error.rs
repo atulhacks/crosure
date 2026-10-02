@@ -15,6 +15,9 @@ pub enum EngineError {
     /// Capstone failed.
     #[error("disassembler error: {0}")]
     Disasm(String),
+    /// The external decompiler is missing or failed.
+    #[error("decompiler: {0}")]
+    Decompiler(String),
     /// The address is not inside any mapped section.
     #[error("address {0:#x} is not mapped")]
     Unmapped(u64),

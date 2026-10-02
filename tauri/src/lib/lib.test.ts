@@ -7,6 +7,7 @@ import { hexRows } from "./hexdump";
 import { layoutGraph } from "./layout";
 import { nextParent } from "./parent";
 import { splitPrompt } from "./prompt";
+import { tokenizeC } from "./ctokens";
 import type { GraphNode } from "../types";
 
 const node = (id: string, seq: number, key = false): GraphNode => ({
@@ -214,5 +215,30 @@ describe("splitPrompt", () => {
       attached: true,
     });
     expect(splitPrompt("plain")).toEqual({ text: "plain", attached: false });
+  });
+});
+
+describe("tokenizeC", () => {
+  it("highlights pseudo-C", () => {
+    const kinds = (l: string) => tokenizeC(l).filter((t) => t.kind !== "plain");
+    expect(kinds('    iVar1 = strcmp(arg1, "a(b");').map((t) => [t.kind, t.text])).toEqual([
+      ["ident", "iVar1"],
+      ["call", "strcmp"],
+      ["ident", "arg1"],
+      ["string", '"a(b"'],
+    ]);
+    expect(kinds("bool f(int32_t x) // note").map((t) => t.kind)).toEqual([
+      "type",
+      "call",
+      "type",
+      "ident",
+      "comment",
+    ]);
+    expect(tokenizeC("return 0x10;").map((t) => t.kind)).toEqual([
+      "keyword",
+      "plain",
+      "number",
+      "plain",
+    ]);
   });
 });

@@ -22,11 +22,11 @@ pub struct Author {
     pub intent: Option<Intent>,
 }
 
-struct Done {
-    result: Value,
-    summary: String,
-    target: Option<Target>,
-    addr: Option<u64>,
+pub(crate) struct Done {
+    pub(crate) result: Value,
+    pub(crate) summary: String,
+    pub(crate) target: Option<Target>,
+    pub(crate) addr: Option<u64>,
 }
 
 const MAX_STRINGS: usize = 5000;
@@ -171,6 +171,7 @@ impl Workspace {
                     addr: Some(f.addr),
                 }
             }
+            Op::Decompile { target } => self.decompile_fn(target)?,
             Op::XrefsTo { target } => {
                 let addr = self.resolve(target)?;
                 let refs = self.rename_refs(self.engine.xrefs_to(addr)?);

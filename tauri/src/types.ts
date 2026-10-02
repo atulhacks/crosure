@@ -194,6 +194,14 @@ export interface VerifyReport {
   failure: { seq: number; step_id: string | null; reason: string } | null;
 }
 
+/** Whether rizin + rz-ghidra can decompile on this machine. */
+export interface DecompilerStatus {
+  available: boolean;
+  rizin: string | null;
+  ghidra: boolean;
+  hint: string | null;
+}
+
 /** One session in a dataset export (see `crosure-dataset`). */
 export interface DatasetSession {
   session_id: string;
@@ -222,6 +230,7 @@ export interface DatasetExport {
 export type Op =
   | { op: "info" }
   | { op: "disasm"; target: string }
+  | { op: "decompile"; target: string }
   | { op: "xrefs_to"; target: string }
   | { op: "xrefs_from"; target: string }
   | { op: "strings"; filter: string | null; min_len: number | null }

@@ -55,7 +55,7 @@ composer. New threads start with the default profile from settings.
 
 | Profile | Tools |
 | --- | --- |
-| Investigate | Every tool. |
+| Investigate | Every tool (including `decompile` when rz-ghidra is installed; see [decompiler.md](decompiler.md)). |
 | Read-only | Every tool except rename and comment. Hypotheses, findings and the verdict are still allowed. |
 | Ask | No tools; the model answers from the conversation and attached context. |
 

@@ -5,6 +5,7 @@ import { useWorkbench, type ViewKind } from "../../store/workbench";
 import { Empty } from "../ui/Pane";
 import { Segmented } from "../ui/Segmented";
 import { CfgView } from "./views/CfgView";
+import { DecompileView } from "./views/DecompileView";
 import { DisasmView } from "./views/DisasmView";
 import { HexView } from "./views/HexView";
 import { ImportsView } from "./views/ImportsView";
@@ -15,6 +16,7 @@ import { XrefsView } from "./views/XrefsView";
 const TABS: { kind: ViewKind; label: string }[] = [
   { kind: "info", label: "Overview" },
   { kind: "disasm", label: "Disassembly" },
+  { kind: "decompile", label: "Decompiled" },
   { kind: "xrefs", label: "Xrefs" },
   { kind: "strings", label: "Strings" },
   { kind: "imports", label: "Imports" },
@@ -26,13 +28,14 @@ const HINT: Record<ViewKind, string> = {
   strings: "",
   imports: "",
   disasm: "Pick a function on the left, or press Ctrl+K.",
+  decompile: "Pick a function on the left to see it as pseudo-C.",
   xrefs: "Click a string, import, or call target to see who references it.",
   hex: "Type hex <addr> in the console.",
 };
 
 /** Tabbed results. Each tab shows the latest step of its kind, linked back to that step. */
 export function CenterPanel() {
-  const { views, activeTab, openTab, graph, selectNode } = useWorkbench();
+  const { views, activeTab, openTab, graph, selectNode, decompiler } = useWorkbench();
   const { disasmMode, setDisasmMode } = useUi();
   const view = views[activeTab];
   const node = graph?.nodes.find((n) => n.id === view?.stepId);
@@ -82,9 +85,22 @@ export function CenterPanel() {
           !(activeTab === "disasm" && disasmMode === "graph") && "scroll-host overflow-auto",
         )}
       >
-        {!view && (
-          <Empty icon={<FileSearch size={22} />} title="Nothing here yet" hint={HINT[activeTab]} />
+        {!view && activeTab === "decompile" && decompiler && !decompiler.available ? (
+          <Empty
+            icon={<FileSearch size={22} />}
+            title="No decompiler found"
+            hint={decompiler.hint ?? ""}
+          />
+        ) : (
+          !view && (
+            <Empty
+              icon={<FileSearch size={22} />}
+              title="Nothing here yet"
+              hint={HINT[activeTab]}
+            />
+          )
         )}
+        {view?.kind === "decompile" && <DecompileView result={view.result} />}
         {view?.kind === "disasm" &&
           (disasmMode === "graph" ? (
             <CfgView result={view.result} />

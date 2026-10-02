@@ -34,6 +34,7 @@ pub fn run() {
             commands::verify,
             commands::export_session,
             commands::export_dataset,
+            commands::decompiler_status,
             commands::step_outcome,
             commands::agent_status,
             commands::agent_settings,

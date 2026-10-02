@@ -83,10 +83,7 @@ pub fn prompt_at(t: &Trajectory, end: usize, history: usize) -> String {
         .map(|s| s.history_line())
         .collect();
     let skip = shown.len().saturating_sub(history);
-    let mut out = format!(
-        "Binary: {} (sha256 {})\nTask: {task}\n",
-        t.binary, t.binary_sha256
-    );
+    let mut out = format!("Binary: {} ({})\nTask: {task}\n", t.binary, t.binary_sha256);
     if shown.is_empty() {
         out.push_str("No steps yet.\n");
     } else {

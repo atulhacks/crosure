@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import * as api from "../api";
+import { hex } from "../lib/format";
 import { nextParent } from "../lib/parent";
 import type {
+  DecompilerStatus,
   FunctionInfo,
   GraphNode,
   InvestigationGraph,
@@ -15,7 +17,7 @@ import type {
 } from "../types";
 
 /** What the centre panel shows; always tied to the step that produced it. */
-export type ViewKind = "disasm" | "xrefs" | "strings" | "imports" | "hex" | "info";
+export type ViewKind = "disasm" | "decompile" | "xrefs" | "strings" | "imports" | "hex" | "info";
 export interface View {
   kind: ViewKind;
   stepId: string;
@@ -62,10 +64,14 @@ interface WorkbenchState {
   clearError: () => void;
   /** Switches tab; opening Strings/Imports/Info the first time runs (and records) it. */
   openTab: (kind: ViewKind) => Promise<void>;
+  /** Opens a function in the code view being looked at (disassembly or decompiled). */
+  openFunction: (addr: number, fromView?: boolean) => Promise<void>;
+  decompiler: DecompilerStatus | null;
 }
 
 const VIEW_OF: Partial<Record<StepKind, ViewKind>> = {
   disasm: "disasm",
+  decompile: "decompile",
   xref: "xrefs",
   strings: "strings",
   imports: "imports",
@@ -73,6 +79,11 @@ const VIEW_OF: Partial<Record<StepKind, ViewKind>> = {
   recon: "info",
   load: "info",
 };
+
+/** Address of the function a code view (disassembly or decompiled) shows. */
+export function functionOf(view: View | undefined): number | undefined {
+  return (view?.result as { function?: { addr: number } } | undefined)?.function?.addr;
+}
 
 /** Which centre view (if any) an outcome should replace the current one with. */
 export function viewFor(outcome: Outcome): View | null {
@@ -108,6 +119,11 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
       verifyReport: null,
       consoleLog: [],
     });
+    if (!get().decompiler)
+      api.decompilerStatus().then(
+        (decompiler) => set({ decompiler }),
+        () => set({ decompiler: { available: false, rizin: null, ghidra: false, hint: null } }),
+      );
     await get().refreshGraph();
     const load = get().graph?.nodes[0];
     if (load) set({ views: { info: { kind: "info", stepId: load.id, result: opened.info } } });
@@ -221,8 +237,22 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
     },
     exportSession: () => guarded(api.exportSession),
     clearError: () => set({ error: null }),
+    decompiler: null,
+    openFunction: async (addr, fromView = false) => {
+      const op = get().activeTab === "decompile" ? "decompile" : "disasm";
+      await get().act({ op, target: hex(addr) }, { fromView });
+    },
     openTab: async (kind) => {
       set({ activeTab: kind });
+      // Switching between the two code views follows the function being read.
+      const { views, decompiler } = get();
+      const other = functionOf(kind === "decompile" ? views.disasm : views.decompile);
+      const here = functionOf(views[kind]);
+      if ((kind === "disasm" || kind === "decompile") && other !== undefined && other !== here) {
+        if (kind === "decompile" && !decompiler?.available) return;
+        await get().act({ op: kind, target: hex(other) }, { fromView: true });
+        return;
+      }
       if (get().views[kind]) return;
       if (kind === "strings") await get().act({ op: "strings", filter: null, min_len: null });
       if (kind === "imports") await get().act({ op: "imports" });

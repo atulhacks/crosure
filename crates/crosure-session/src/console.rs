@@ -5,6 +5,7 @@ pub const CONSOLE_HELP: &str = "\
 info                         binary info
 fns [filter]                 list functions
 dis <fn|addr>                disassemble function
+dec <fn|addr>                decompile function (rizin + rz-ghidra)
 xt <fn|addr>                 xrefs to
 xf <fn|addr>                 xrefs from function
 str [filter]                 strings (optionally filtered)
@@ -54,6 +55,9 @@ pub fn parse_command(line: &str) -> Result<Op, SessionError> {
                 .filter(|s| !s.is_empty()),
         },
         "dis" | "pdf" => Op::Disasm {
+            target: arg(&parts, 1, line)?,
+        },
+        "dec" | "pdg" => Op::Decompile {
             target: arg(&parts, 1, line)?,
         },
         "xt" | "axt" => Op::XrefsTo {

@@ -83,6 +83,12 @@ pub fn export_session(state: State<'_, AppState>) -> Res<String> {
     core::export_session(&state)
 }
 
+/// Whether decompilation is available.
+#[tauri::command]
+pub fn decompiler_status() -> crosure_engine::DecompilerStatus {
+    core::decompiler_status()
+}
+
 /// Exports every verified session as a training dataset.
 #[tauri::command]
 pub fn export_dataset(state: State<'_, AppState>) -> Res<core::DatasetExport> {

@@ -2,18 +2,19 @@ import clsx from "clsx";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { hex } from "../../lib/format";
-import { useWorkbench } from "../../store/workbench";
+import { functionOf, useWorkbench } from "../../store/workbench";
 import { Pane } from "../ui/Pane";
 
 const LIMIT = 2000;
 
-/** Searchable function list. Opening one disassembles it (a recorded step). */
+/** Searchable function list. Opening one disassembles or decompiles it (a recorded step). */
 export function FunctionList() {
   const functions = useWorkbench((s) => s.functions);
-  const act = useWorkbench((s) => s.act);
-  const disasm = useWorkbench((s) => s.views.disasm);
+  const openFunction = useWorkbench((s) => s.openFunction);
+  const current = useWorkbench((s) =>
+    functionOf(s.views[s.activeTab === "decompile" ? "decompile" : "disasm"]),
+  );
   const [q, setQ] = useState("");
-  const current = (disasm?.result as { function?: { addr: number } } | undefined)?.function?.addr;
   const shown = useMemo(() => {
     const n = q.toLowerCase();
     return n
@@ -40,7 +41,7 @@ export function FunctionList() {
             return (
               <button
                 key={f.addr}
-                onClick={() => act({ op: "disasm", target: hex(f.addr) })}
+                onClick={() => openFunction(f.addr)}
                 title={`${f.source} · ${f.size} bytes`}
                 className={clsx(
                   "row ease relative w-full text-left hover:bg-hover",

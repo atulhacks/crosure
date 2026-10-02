@@ -12,6 +12,7 @@
 //! ```
 
 mod cfg;
+mod decompile;
 mod engine;
 mod error;
 mod native;
@@ -19,6 +20,10 @@ mod operand;
 mod types;
 
 pub use cfg::build_cfg;
+pub use decompile::{
+    decompile, decompiler_status, parse_pdgj, DecompLine, Decompiled, DecompilerStatus,
+    DECOMPILER_HINT,
+};
 pub use engine::Engine;
 pub use error::EngineError;
 pub use native::NativeEngine;

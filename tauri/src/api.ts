@@ -4,6 +4,7 @@ import type {
   AgentSettings,
   AgentStatus,
   DatasetExport,
+  DecompilerStatus,
   Profile,
   ProviderConfig,
   SettingsView,
@@ -82,6 +83,9 @@ export const exportSession = () => invoke<string>("export_session");
 
 /** Writes every verified session as trajectories, SFT and DPO JSONL; returns where and counts. */
 export const exportDataset = () => invoke<DatasetExport>("export_dataset");
+
+/** Whether decompilation (rizin + rz-ghidra) is available. */
+export const decompilerStatus = () => invoke<DecompilerStatus>("decompiler_status");
 
 /** Re-opens an earlier step's stored result (does not record anything). */
 export const stepOutcome = (stepId: string) => invoke<Outcome>("step_outcome", { stepId });

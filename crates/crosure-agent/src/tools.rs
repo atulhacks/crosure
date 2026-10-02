@@ -49,6 +49,8 @@ pub fn tool_definitions() -> Value {
             json!({ "filter": nullable_string("Substring to match, or null for all.") }), &["filter"]),
         tool("disassemble", "Disassemble a whole function. Calls are annotated with callee names, data references with string literals.",
             json!({ "target": string(target) }), &["target"]),
+        tool("decompile", "Pseudo-C of a whole function (rz-ghidra), using the current names. Faster to read than disassembly; may be unavailable on this machine, in which case use disassemble.",
+            json!({ "target": string(target) }), &["target"]),
         tool("xrefs_to", "Who references an address: callers of a function or import, users of a string or global.",
             json!({ "target": string("Function, import, or address (string addresses come from search_strings).") }), &["target"]),
         tool("xrefs_from", "Everything a function calls or references.",
@@ -131,6 +133,9 @@ pub fn parse_tool_call(name: &str, input: &Value) -> Result<ToolCall, String> {
             filter: opt(input, "filter"),
         },
         "disassemble" => Op::Disasm {
+            target: s(input, "target")?,
+        },
+        "decompile" => Op::Decompile {
             target: s(input, "target")?,
         },
         "xrefs_to" => Op::XrefsTo {
