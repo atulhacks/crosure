@@ -130,3 +130,48 @@ describe("layoutCfg", () => {
     expect(out.edges.map((e) => e.style?.stroke)).toEqual(["var(--good)", "var(--bad)"]);
   });
 });
+
+describe("toConfig", () => {
+  it("sends a key only when the user typed or cleared one", async () => {
+    const { toConfig } = await import("../components/agent/ProviderForm");
+    const base = {
+      id: "ollama",
+      kind: "openai_compatible" as const,
+      label: "Ollama",
+      base_url: "http://localhost:11434/v1",
+      model: "qwen2.5-coder:14b",
+      key_env: null,
+      strict_tools: false,
+      enabled: true,
+      key_source: "not_needed" as const,
+      ready: true,
+    };
+    expect(toConfig(base).api_key).toBeNull();
+    expect(toConfig({ ...base, api_key: "" }).api_key).toBe("");
+    expect(Object.keys(toConfig(base))).not.toContain("ready");
+  });
+});
+
+describe("isReady", () => {
+  it("mirrors the backend readiness rules", async () => {
+    const { isReady, isLocal } = await import("../components/agent/ProviderForm");
+    const d = {
+      id: "openai",
+      kind: "openai_compatible" as const,
+      label: "OpenAI",
+      base_url: "https://api.openai.com/v1",
+      model: "",
+      key_env: "OPENAI_API_KEY",
+      strict_tools: true,
+      enabled: true,
+      key_source: "missing" as const,
+    };
+    expect(isLocal("http://127.0.0.1:11434/v1")).toBe(true);
+    expect(isReady(d)).toBe(false);
+    expect(isReady({ ...d, model: "m" })).toBe(false);
+    expect(isReady({ ...d, model: "m", api_key: "sk" })).toBe(true);
+    expect(isReady({ ...d, model: "m", key_source: "env" })).toBe(true);
+    expect(isReady({ ...d, model: "m", base_url: "http://localhost:1234/v1" })).toBe(true);
+    expect(isReady({ ...d, model: "m", api_key: "sk", enabled: false })).toBe(false);
+  });
+});

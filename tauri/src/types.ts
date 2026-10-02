@@ -208,15 +208,52 @@ export type Op =
   | { op: "finding"; text: string }
   | { op: "verdict"; verdict: string; family: string | null; text: string };
 
+export type KeySource = "saved" | "env" | "not_needed" | "missing";
+
 export interface AgentStatus {
   configured: boolean;
-  source: "env" | "saved" | "demo" | "none";
+  demo: boolean;
+  provider: string;
+  label: string;
   model: string;
+  key_source: KeySource | null;
+  fallbacks: number;
   running: boolean;
 }
 
+export interface ProviderConfig {
+  id: string;
+  kind: "anthropic" | "openai_compatible";
+  label: string;
+  base_url: string;
+  model: string;
+  /** Only ever sent to the backend (to set or clear a key); never received. */
+  api_key?: string | null;
+  key_env: string | null;
+  strict_tools: boolean;
+  enabled: boolean;
+}
+
+export interface ProviderView extends ProviderConfig {
+  key_source: KeySource;
+  ready: boolean;
+}
+
+export interface AgentSettings {
+  providers: ProviderConfig[];
+  active: string;
+  auto_fallback: boolean;
+}
+
+export interface SettingsView {
+  providers: ProviderView[];
+  active: string;
+  auto_fallback: boolean;
+  presets: ProviderConfig[];
+}
+
 export type AgentEvent =
-  | { type: "started"; prompt: string; model: string }
+  | { type: "started"; prompt: string; model: string; provider: string }
   | { type: "thinking"; text: string }
   | { type: "message"; text: string }
   | {
@@ -228,7 +265,8 @@ export type AgentEvent =
       summary: string | null;
       error: string | null;
     }
-  | { type: "refusal"; category: string | null; explanation: string | null }
+  | { type: "refusal"; provider: string; category: string | null; explanation: string | null }
+  | { type: "switched"; from: string; to: string }
   | {
       type: "finished";
       report: string;

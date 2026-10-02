@@ -40,11 +40,9 @@ pub fn dispatch(state: &AppState, cmd: &str, args: &Value) -> Res<Value> {
         "export_session" => json(core::export_session(state)),
         "step_outcome" => json(core::step_outcome(state, arg(args, "stepId")?)),
         "agent_status" => json(Ok(core::agent_status(state))),
-        "agent_configure" => json(core::agent_configure(
-            state,
-            arg(args, "apiKey")?,
-            arg(args, "model")?,
-        )),
+        "agent_settings" => json(Ok(core::agent_settings(state))),
+        "agent_save_settings" => json(core::agent_save_settings(state, arg(args, "settings")?)),
+        "agent_list_models" => json(core::agent_list_models(state, arg(args, "provider")?)),
         "agent_start" => json(core::agent_start(state, arg(args, "prompt")?)),
         "agent_events" => json(Ok(core::agent_events(
             state,

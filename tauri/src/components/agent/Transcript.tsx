@@ -1,5 +1,12 @@
 import clsx from "clsx";
-import { AlertTriangle, Brain, ChevronRight, CircleStop, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Brain,
+  ChevronRight,
+  CircleStop,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { useWorkbench } from "../../store/workbench";
 import type { AgentEvent } from "../../types";
@@ -77,7 +84,9 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
             return (
               <div key={i} className="mb-2 rounded-md bg-active px-2.5 py-1.5 text-sm text-fg">
                 {e.prompt}
-                <div className="mt-0.5 font-mono text-2xs text-faint">{e.model}</div>
+                <div className="mt-0.5 font-mono text-2xs text-faint">
+                  {e.provider} · {e.model}
+                </div>
               </div>
             );
           case "thinking":
@@ -97,14 +106,20 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
                 className="rounded-md border border-warn/40 px-2.5 py-2 text-xs text-warn"
               >
                 <div className="flex items-center gap-1.5 font-medium">
-                  <AlertTriangle size={12} /> The model declined ({e.category ?? "policy"})
+                  <AlertTriangle size={12} /> {e.provider} declined ({e.category ?? "policy"})
                 </div>
                 <p className="mt-1 text-muted">
-                  {e.explanation ??
-                    "A safety classifier stopped this request and no fallback could continue."}{" "}
-                  For legitimate malware analysis, Anthropic's Cyber Verification Program can lift
-                  these limits.
+                  {e.explanation ?? "A safety system stopped this request."} Add another provider (a
+                  local model, for example) so the run can continue, or apply to the provider's
+                  security-research program (Anthropic: Cyber Verification Program).
                 </p>
+              </div>
+            );
+          case "switched":
+            return (
+              <div key={i} className="flex items-center gap-1.5 text-xs text-muted">
+                <ArrowRightLeft size={12} className="text-brand" /> Continuing on{" "}
+                <span className="font-mono text-fg">{e.to}</span>
               </div>
             );
           case "finished":

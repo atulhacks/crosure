@@ -9,7 +9,8 @@ interface AgentState {
   running: boolean;
   error: string | null;
   refreshStatus: () => Promise<void>;
-  configure: (apiKey: string | null, model: string | null) => Promise<void>;
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
   start: (prompt: string) => Promise<void>;
   stop: () => Promise<void>;
 }
@@ -36,12 +37,10 @@ export const useAgent = create<AgentState>((set, get) => ({
       set({ error: String(e) });
     }
   },
-  configure: async (apiKey, model) => {
-    try {
-      set({ status: await api.agentConfigure(apiKey, model), error: null });
-    } catch (e) {
-      set({ error: e instanceof Error ? e.message : String(e) });
-    }
+  settingsOpen: false,
+  setSettingsOpen: (settingsOpen) => {
+    set({ settingsOpen });
+    if (!settingsOpen) get().refreshStatus();
   },
   start: async (prompt) => {
     set({ error: null });

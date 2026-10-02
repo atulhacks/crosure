@@ -164,19 +164,30 @@ pub fn step_outcome(state: &AppState, step_id: String) -> Res<Outcome> {
     Ok(Outcome { step, result })
 }
 
-/// Agent setup status (never the key).
+/// Agent dock status (never a key).
 pub fn agent_status(state: &AppState) -> crate::agent::AgentStatus {
     state.agent.status()
 }
 
-/// Saves an API key and/or model for the agent.
-pub fn agent_configure(
+/// Provider settings for the settings dialog (keys redacted).
+pub fn agent_settings(state: &AppState) -> crate::agent::SettingsView {
+    state.agent.settings_view()
+}
+
+/// Saves provider settings.
+pub fn agent_save_settings(
     state: &AppState,
-    api_key: Option<String>,
-    model: Option<String>,
-) -> Res<crate::agent::AgentStatus> {
-    state.agent.save(api_key, model)?;
-    Ok(state.agent.status())
+    settings: crosure_agent::AgentSettings,
+) -> Res<crate::agent::SettingsView> {
+    state.agent.save(settings)
+}
+
+/// Lists a provider's models (a connection test too).
+pub fn agent_list_models(
+    state: &AppState,
+    provider: crosure_agent::ProviderConfig,
+) -> Res<Vec<String>> {
+    state.agent.models(provider)
 }
 
 /// Starts the agent on the open binary.

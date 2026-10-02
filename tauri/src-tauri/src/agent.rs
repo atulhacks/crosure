@@ -1,31 +1,41 @@
-//! Agent runtime for the app: settings, the background run, and the event log the UI polls.
+//! Agent runtime for the app: provider settings, the background run, and the
+//! event log the UI polls.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use crosure_agent::{
-    run_agent, AgentConfig, AgentEvent, ClaudeHttp, Llm, ScriptedLlm, SessionExecutor, Sink,
-    DEFAULT_MODEL,
+    build_chain, list_models, presets, run_agent, AgentConfig, AgentEvent, AgentSettings,
+    KeySource, Provider, ProviderConfig, ProviderView, ScriptedProvider, SessionExecutor, Sink,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::AppState;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
-struct Saved {
-    api_key: Option<String>,
-    model: Option<String>,
-}
-
-/// What the UI shows about agent setup (never the key itself).
+/// What the agent dock shows (never a key).
 #[derive(Serialize)]
 pub struct AgentStatus {
     pub configured: bool,
-    /// `env`, `saved`, `demo`, or `none`.
-    pub source: &'static str,
+    pub demo: bool,
+    /// Active provider id and label.
+    pub provider: String,
+    pub label: String,
     pub model: String,
+    pub key_source: Option<KeySource>,
+    /// How many providers are ready to take over after a decline.
+    pub fallbacks: usize,
     pub running: bool,
+}
+
+/// Settings as the settings dialog sees them.
+#[derive(Serialize)]
+pub struct SettingsView {
+    pub providers: Vec<ProviderView>,
+    pub active: String,
+    pub auto_fallback: bool,
+    /// Templates for "Add provider" (no keys).
+    pub presets: Vec<ProviderConfig>,
 }
 
 /// A page of events since a cursor.
@@ -36,10 +46,10 @@ pub struct EventPage {
     pub running: bool,
 }
 
-/// Agent settings, run state, and the event log for the current run.
+/// Settings, run state and the event log for the current run.
 pub struct AgentRuntime {
     path: PathBuf,
-    saved: Mutex<Saved>,
+    settings: Mutex<AgentSettings>,
     events: Mutex<Vec<AgentEvent>>,
     running: AtomicBool,
     stop: AtomicBool,
@@ -61,72 +71,77 @@ fn demo_mode() -> bool {
 }
 
 impl AgentRuntime {
-    /// Loads saved settings from `home/agent.json`.
+    /// Loads `home/agent.json` (migrating the first format).
     pub fn new(home: &Path) -> Self {
         let path = home.join("agent.json");
-        let saved = std::fs::read(&path)
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
+        let settings = std::fs::read(&path)
+            .map(|b| AgentSettings::from_json(&b))
             .unwrap_or_default();
         Self {
             path,
-            saved: Mutex::new(saved),
+            settings: Mutex::new(settings),
             events: Mutex::new(Vec::new()),
             running: AtomicBool::new(false),
             stop: AtomicBool::new(false),
         }
     }
 
-    fn key(&self) -> (Option<String>, &'static str) {
-        if demo_mode() {
-            return (None, "demo");
-        }
-        if let Ok(k) = std::env::var("ANTHROPIC_API_KEY") {
-            if !k.trim().is_empty() {
-                return (Some(k), "env");
-            }
-        }
-        match self.saved.lock().ok().and_then(|s| s.api_key.clone()) {
-            Some(k) if !k.trim().is_empty() => (Some(k), "saved"),
-            _ => (None, "none"),
-        }
+    fn snapshot(&self) -> AgentSettings {
+        self.settings.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
-    fn model(&self) -> String {
-        self.saved
-            .lock()
-            .ok()
-            .and_then(|s| s.model.clone())
-            .unwrap_or_else(|| DEFAULT_MODEL.to_string())
-    }
-
-    /// Setup status for the UI.
+    /// Dock status.
     pub fn status(&self) -> AgentStatus {
-        let (key, source) = self.key();
+        let running = self.running.load(Ordering::SeqCst);
+        if demo_mode() {
+            return AgentStatus {
+                configured: true,
+                demo: true,
+                provider: "demo".into(),
+                label: "Scripted demo".into(),
+                model: "scripted-demo".into(),
+                key_source: None,
+                fallbacks: 0,
+                running,
+            };
+        }
+        let s = self.snapshot();
+        let active = s.providers.iter().find(|p| p.id == s.active);
+        let fallbacks = if s.auto_fallback {
+            s.providers
+                .iter()
+                .filter(|p| p.id != s.active && p.ready())
+                .count()
+        } else {
+            0
+        };
         AgentStatus {
-            configured: key.is_some() || source == "demo",
-            source,
-            model: if source == "demo" {
-                "scripted-demo".into()
-            } else {
-                self.model()
-            },
-            running: self.running.load(Ordering::SeqCst),
+            configured: active.is_some_and(ProviderConfig::ready),
+            demo: false,
+            provider: s.active.clone(),
+            label: active.map(|p| p.label.clone()).unwrap_or_default(),
+            model: active.map(|p| p.model.clone()).unwrap_or_default(),
+            key_source: active.map(|p| p.key().1),
+            fallbacks,
+            running,
         }
     }
 
-    /// Saves the API key (and optionally a model) to `agent.json`, readable only by the user.
-    pub fn save(&self, api_key: Option<String>, model: Option<String>) -> Result<(), String> {
-        let mut saved = self.saved.lock().map_err(|_| "settings lock poisoned")?;
-        if api_key.is_some() {
-            saved.api_key = api_key.filter(|k| !k.trim().is_empty());
+    /// Settings for the dialog.
+    pub fn settings_view(&self) -> SettingsView {
+        let s = self.snapshot();
+        SettingsView {
+            providers: s.views(),
+            active: s.active,
+            auto_fallback: s.auto_fallback,
+            presets: presets(),
         }
-        if let Some(m) = model.filter(|m| !m.trim().is_empty()) {
-            saved.model = Some(m);
-        }
+    }
+
+    fn persist(&self, s: &AgentSettings) -> Result<(), String> {
         std::fs::write(
             &self.path,
-            serde_json::to_vec_pretty(&*saved).map_err(|e| e.to_string())?,
+            serde_json::to_vec_pretty(s).map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
         #[cfg(unix)]
@@ -135,6 +150,36 @@ impl AgentRuntime {
             let _ = std::fs::set_permissions(&self.path, std::fs::Permissions::from_mode(0o600));
         }
         Ok(())
+    }
+
+    /// Saves settings from the dialog (keys left out are kept; "" clears).
+    pub fn save(&self, incoming: AgentSettings) -> Result<SettingsView, String> {
+        {
+            let mut s = self.settings.lock().map_err(|_| "settings lock poisoned")?;
+            s.merge(incoming);
+            if !s.providers.iter().any(|p| p.id == s.active) {
+                s.active = s
+                    .providers
+                    .first()
+                    .map(|p| p.id.clone())
+                    .unwrap_or_default();
+            }
+            self.persist(&s)?;
+        }
+        Ok(self.settings_view())
+    }
+
+    /// Model ids a provider offers (also tests the connection). Uses the saved key when none is given.
+    pub fn models(&self, mut cfg: ProviderConfig) -> Result<Vec<String>, String> {
+        if cfg.api_key.as_deref().is_none_or(str::is_empty) {
+            cfg.api_key = self
+                .snapshot()
+                .providers
+                .into_iter()
+                .find(|p| p.id == cfg.id)
+                .and_then(|p| p.api_key);
+        }
+        list_models(&cfg).map_err(|e| e.to_string())
     }
 
     /// Events since `since`.
@@ -160,18 +205,12 @@ impl AgentRuntime {
         self.stop.store(true, Ordering::SeqCst);
     }
 
-    fn llm(&self) -> Result<Box<dyn Llm>, String> {
-        match self.key() {
-            (_, "demo") => Ok(Box::new(ScriptedLlm::crackme_demo())),
-            (Some(k), _) => {
-                let base = std::env::var("ANTHROPIC_BASE_URL").ok();
-                Ok(Box::new(
-                    ClaudeHttp::new(&k, &self.model(), base.as_deref())
-                        .map_err(|e| e.to_string())?,
-                ))
-            }
-            (None, _) => Err("Add an Anthropic API key to use the agent.".into()),
+    fn chain(&self) -> Result<Vec<Box<dyn Provider>>, String> {
+        if demo_mode() {
+            return Ok(vec![Box::new(ScriptedProvider::crackme_demo())]);
         }
+        build_chain(&self.snapshot())
+            .map_err(|_| "No AI provider is ready. Open agent settings to add one.".to_string())
     }
 }
 
@@ -181,8 +220,8 @@ pub fn start(state: &AppState, prompt: String) -> Result<(), String> {
     if rt.running.swap(true, Ordering::SeqCst) {
         return Err("the agent is already running".into());
     }
-    let begin = || -> Result<Box<dyn Llm>, String> {
-        let llm = rt.llm()?;
+    let begin = || -> Result<Vec<Box<dyn Provider>>, String> {
+        let chain = rt.chain()?;
         let store = state.store.lock().map_err(|_| "store lock poisoned")?;
         let ws = state
             .workspace
@@ -192,10 +231,10 @@ pub fn start(state: &AppState, prompt: String) -> Result<(), String> {
             .ok_or("no binary is open")?
             .record_task(&store, &prompt)
             .map_err(|e| e.to_string())?;
-        Ok(llm)
+        Ok(chain)
     };
-    let llm = match begin() {
-        Ok(l) => l,
+    let chain = match begin() {
+        Ok(c) => c,
         Err(e) => {
             rt.running.store(false, Ordering::SeqCst);
             return Err(e);
@@ -208,21 +247,26 @@ pub fn start(state: &AppState, prompt: String) -> Result<(), String> {
     let exec = SessionExecutor {
         store: state.store.clone(),
         workspace: state.workspace.clone(),
-        model: llm.model().to_string(),
     };
-    let model = llm.model().to_string();
     std::thread::spawn(move || {
-        if let Ok(report) = run_agent(
-            llm.as_ref(),
-            &exec,
-            rt.as_ref(),
-            &prompt,
-            &AgentConfig::default(),
-        ) {
+        if let Ok(report) = run_agent(&chain, &exec, rt.as_ref(), &prompt, &AgentConfig::default())
+        {
             if !report.is_empty() {
+                // Attribute the report to whichever provider finished the run.
+                let by = rt
+                    .events
+                    .lock()
+                    .ok()
+                    .and_then(|e| {
+                        e.iter().rev().find_map(|e| match e {
+                            AgentEvent::Switched { to, .. } => Some(to.clone()),
+                            _ => None,
+                        })
+                    })
+                    .unwrap_or_else(|| chain[0].tag());
                 let saved = exec.store.lock().ok().and_then(|store| {
                     let ws = exec.workspace.lock().ok()?;
-                    ws.as_ref()?.record_report(&store, &model, &report).ok()
+                    ws.as_ref()?.record_report(&store, &by, &report).ok()
                 });
                 if saved.is_none() {
                     rt.emit(AgentEvent::Failed {
