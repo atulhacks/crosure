@@ -110,9 +110,10 @@ impl Workspace {
                 self.rename_insns(&mut insns);
                 let name = self.name_of(f.addr).unwrap_or(f.name.clone());
                 let comments: Vec<_> = self.comments.range(f.addr..f.addr + f.size).collect();
+                let blocks = crosure_engine::build_cfg(&insns, f.addr, f.addr + f.size);
                 Done {
                     summary: summary::disasm(&name, &insns),
-                    result: json!({ "function": { "addr": f.addr, "name": name, "size": f.size }, "instructions": insns, "comments": comments }),
+                    result: json!({ "function": { "addr": f.addr, "name": name, "size": f.size }, "instructions": insns, "comments": comments, "blocks": blocks }),
                     target: Some(self.target_for(f.addr)),
                     addr: Some(f.addr),
                 }

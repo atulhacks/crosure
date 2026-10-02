@@ -145,3 +145,26 @@ fn read_bytes_and_errors() -> Result<(), EngineError> {
     ));
     Ok(())
 }
+
+#[test]
+fn cfg_of_main_has_branches() -> Result<(), EngineError> {
+    use crosure_engine::EdgeKind;
+    let e = fixture("crackme-x64")?;
+    let main = e.resolve("main")?.ok_or(EngineError::Unmapped(0))?;
+    let blocks = e.function_graph(main)?;
+    assert!(blocks.len() >= 4, "{blocks:?}");
+    assert_eq!(blocks[0].addr, main);
+    let taken = blocks
+        .iter()
+        .flat_map(|b| &b.succs)
+        .filter(|s| s.kind == EdgeKind::Taken)
+        .count();
+    assert_eq!(taken, 2, "argc check + password check");
+    let total: usize = blocks.iter().map(|b| b.count).sum();
+    assert_eq!(total, e.disasm_function(main)?.len());
+    let check = e
+        .resolve("check_password")?
+        .ok_or(EngineError::Unmapped(0))?;
+    assert_eq!(e.function_graph(check)?.len(), 1, "straight-line function");
+    Ok(())
+}

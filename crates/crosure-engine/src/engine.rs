@@ -1,4 +1,7 @@
-use crate::{BinaryInfo, EngineError, FunctionInfo, Import, Instruction, StringRef, Xref};
+use crate::{
+    build_cfg, BasicBlock, BinaryInfo, EngineError, FunctionInfo, Import, Instruction, StringRef,
+    Xref,
+};
 
 /// The backend-neutral analysis surface. Every op the UI or an agent runs
 /// goes through this trait, so it can be recorded the same way whatever
@@ -28,4 +31,11 @@ pub trait Engine: Send + Sync {
     fn read_bytes(&self, addr: u64, len: usize) -> Result<Vec<u8>, EngineError>;
     /// Resolves a function or import name to an address.
     fn resolve(&self, name: &str) -> Result<Option<u64>, EngineError>;
+
+    /// Basic blocks of the function containing `addr` (built from its disassembly).
+    fn function_graph(&self, addr: u64) -> Result<Vec<BasicBlock>, EngineError> {
+        let f = self.function_at(addr)?.ok_or(EngineError::Unmapped(addr))?;
+        let insns = self.disasm_function(f.addr)?;
+        Ok(build_cfg(&insns, f.addr, f.addr + f.size))
+    }
 }

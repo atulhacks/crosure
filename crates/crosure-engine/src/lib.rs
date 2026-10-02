@@ -11,16 +11,19 @@
 //! # Ok::<(), crosure_engine::EngineError>(())
 //! ```
 
+mod cfg;
 mod engine;
 mod error;
 mod native;
 mod operand;
 mod types;
 
+pub use cfg::build_cfg;
 pub use engine::Engine;
 pub use error::EngineError;
 pub use native::NativeEngine;
 pub use operand::{parse_branch_target, parse_rip_relative};
 pub use types::{
-    BinaryInfo, FunctionInfo, Import, Instruction, SectionInfo, StringRef, Xref, XrefKind,
+    BasicBlock, BinaryInfo, BlockEdge, EdgeKind, FunctionInfo, Import, Instruction, SectionInfo,
+    StringRef, Xref, XrefKind,
 };
