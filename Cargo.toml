@@ -11,6 +11,8 @@ resolver = "2"
 members = [
     "crates/crosure-recorder",
     "crates/crosure-engine",
+    "crates/crosure-graph",
+    "crates/crosure-session",
 ]
 
 [workspace.package]
@@ -31,6 +33,7 @@ tempfile = "3"
 crosure-recorder = { path = "crates/crosure-recorder" }
 crosure-engine = { path = "crates/crosure-engine" }
 crosure-graph = { path = "crates/crosure-graph" }
+crosure-session = { path = "crates/crosure-session" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
