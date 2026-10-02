@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEvent {
     /// The run began.
-    Started { prompt: String, model: String },
+    Started {
+        prompt: String,
+        model: String,
+        provider: String,
+    },
     /// A summary of the model's reasoning for this turn.
     Thinking { text: String },
     /// Text the model wrote between tool calls.
@@ -19,11 +23,14 @@ pub enum AgentEvent {
         summary: Option<String>,
         error: Option<String>,
     },
-    /// A safety classifier declined and no fallback could continue.
+    /// A provider's safety system declined.
     Refusal {
+        provider: String,
         category: Option<String>,
         explanation: Option<String>,
     },
+    /// The run moved to the next provider after a decline (`provider:model` tags).
+    Switched { from: String, to: String },
     /// The run finished with a final report.
     Finished {
         report: String,

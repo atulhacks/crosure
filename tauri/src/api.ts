@@ -1,7 +1,10 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   AgentEventPage,
+  AgentSettings,
   AgentStatus,
+  ProviderConfig,
+  SettingsView,
   FunctionInfo,
   InvestigationGraph,
   Op,
@@ -80,9 +83,16 @@ export const stepOutcome = (stepId: string) => invoke<Outcome>("step_outcome", {
 /** Agent setup status (the key itself is never returned). */
 export const agentStatus = () => invoke<AgentStatus>("agent_status");
 
-/** Saves an Anthropic API key and/or model for the agent. */
-export const agentConfigure = (apiKey: string | null, model: string | null) =>
-  invoke<AgentStatus>("agent_configure", { apiKey, model });
+/** Provider settings (keys are never returned, only where each comes from). */
+export const agentSettings = () => invoke<SettingsView>("agent_settings");
+
+/** Saves provider settings. A provider without `api_key` keeps its saved key; "" clears it. */
+export const agentSaveSettings = (settings: AgentSettings) =>
+  invoke<SettingsView>("agent_save_settings", { settings });
+
+/** Lists a provider's models; doubles as a connection test. */
+export const agentListModels = (provider: ProviderConfig) =>
+  invoke<string[]>("agent_list_models", { provider });
 
 /** Starts the agent on the open binary; its steps are recorded like yours. */
 export const agentStart = (prompt: string) => invoke<null>("agent_start", { prompt });

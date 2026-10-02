@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { CommandPalette } from "./components/shell/CommandPalette";
+import { AgentSettingsDialog } from "./components/agent/AgentSettingsDialog";
 import { ErrorToast } from "./components/shell/ErrorToast";
 import { StatusBar } from "./components/shell/StatusBar";
 import { TitleBar } from "./components/shell/TitleBar";
@@ -88,6 +89,7 @@ export default function App() {
       {opened ? <Workspace /> : <Welcome />}
       <StatusBar />
       <CommandPalette />
+      <AgentSettingsDialog />
       <ErrorToast />
     </div>
   );

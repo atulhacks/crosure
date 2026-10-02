@@ -101,6 +101,9 @@ fn opt(input: &Value, key: &str) -> Option<String> {
 /// # Ok::<(), String>(())
 /// ```
 pub fn parse_tool_call(name: &str, input: &Value) -> Result<ToolCall, String> {
+    if input.get("__unparsed").is_some() {
+        return Err("tool arguments were not valid JSON".into());
+    }
     let why = opt(input, "why").unwrap_or_default();
     let op = match name {
         "binary_info" => Op::Info,

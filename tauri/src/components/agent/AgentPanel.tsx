@@ -1,4 +1,4 @@
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Settings2, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAgent } from "../../store/agent";
 import { Empty } from "../ui/Pane";
@@ -13,7 +13,8 @@ const SUGGESTIONS = [
 
 /** Ask Claude to reverse the binary; its steps join the investigation graph live. */
 export function AgentPanel() {
-  const { status, events, running, error, refreshStatus, start, stop } = useAgent();
+  const { status, events, running, error, refreshStatus, start, stop, setSettingsOpen } =
+    useAgent();
   const [prompt, setPrompt] = useState("");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -95,15 +96,20 @@ export function AgentPanel() {
           </button>
         )}
       </form>
-      <div className="flex justify-between px-3 pb-1.5 font-mono text-2xs text-faint">
-        <span>{status.model}</span>
-        <span>
-          {status.source === "demo"
-            ? "scripted demo (not Claude)"
-            : status.source === "env"
-              ? "key from env"
-              : "key saved"}
+      <div className="flex items-center gap-2 px-3 pb-1.5 font-mono text-2xs text-faint">
+        <span className="truncate">
+          {status.demo ? "scripted demo (not a real AI)" : `${status.label} · ${status.model}`}
         </span>
+        {!status.demo && status.fallbacks > 0 && (
+          <span className="shrink-0">+{status.fallbacks} fallback</span>
+        )}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="AI providers"
+          className="ml-auto text-faint hover:text-fg"
+        >
+          <Settings2 size={12} />
+        </button>
       </div>
     </div>
   );

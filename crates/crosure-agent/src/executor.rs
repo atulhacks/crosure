@@ -11,11 +11,10 @@ use crate::{Executed, Executor, ToolCall};
 pub struct SessionExecutor {
     pub store: Arc<Mutex<Store>>,
     pub workspace: Arc<Mutex<Option<Workspace>>>,
-    pub model: String,
 }
 
 impl Executor for SessionExecutor {
-    fn execute(&self, call: &ToolCall) -> Result<Executed, String> {
+    fn execute(&self, call: &ToolCall, by: &str) -> Result<Executed, String> {
         let store = self.store.lock().map_err(|_| "store lock poisoned")?;
         let mut ws = self
             .workspace
@@ -23,7 +22,7 @@ impl Executor for SessionExecutor {
             .map_err(|_| "workspace lock poisoned")?;
         let ws = ws.as_mut().ok_or("no binary is open")?;
         let author = Author {
-            model: Some(self.model.clone()),
+            model: Some(by.to_string()),
             intent: (!call.why.is_empty()).then(|| Intent {
                 chip: None,
                 note: Some(call.why.clone()),

@@ -1,16 +1,17 @@
-//! `crosure-reverse <binary> [task]`: let the AI reverse a file from the
-//! terminal. Every step is recorded to the same store the app uses, so the
+//! `crosure-reverse [--demo] <binary> [task]`: let an AI reverse a file from
+//! the terminal. Every step is recorded to the same store the app uses, so the
 //! session opens in Crosure afterwards (graph, replay, verification).
 //!
-//! Key: `ANTHROPIC_API_KEY`. Model: `CROSURE_MODEL` (default claude-opus-5-5).
-//! `--demo` runs the scripted model instead (no key; for the bundled crackme).
+//! Providers come from `~/.crosure/agent.json` (set up in the app). With no
+//! file, Claude is used with `ANTHROPIC_API_KEY`. `--demo` runs the scripted
+//! model instead (no key; for the bundled crackme).
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use crosure_agent::{
-    run_agent, AgentConfig, AgentEvent, ClaudeHttp, Llm, ScriptedLlm, SessionExecutor, Sink,
-    DEFAULT_MODEL,
+    build_chain, run_agent, AgentConfig, AgentEvent, AgentSettings, Provider, ScriptedProvider,
+    SessionExecutor, Sink,
 };
 use crosure_recorder::Store;
 use crosure_session::Workspace;
@@ -20,7 +21,9 @@ struct Print;
 impl Sink for Print {
     fn emit(&self, e: AgentEvent) {
         match e {
-            AgentEvent::Started { model, .. } => eprintln!("· model {model}"),
+            AgentEvent::Started {
+                model, provider, ..
+            } => eprintln!("· {provider} / {model}"),
             AgentEvent::Thinking { text } => eprintln!("  … {}", text.lines().next().unwrap_or("")),
             AgentEvent::Message { text } => eprintln!("  {text}"),
             AgentEvent::ToolCall {
@@ -42,13 +45,15 @@ impl Sink for Print {
                 }
             }
             AgentEvent::Refusal {
+                provider,
                 category,
                 explanation,
             } => eprintln!(
-                "! declined ({}): {}",
+                "! {provider} declined ({}): {}",
                 category.unwrap_or_default(),
                 explanation.unwrap_or_default()
             ),
+            AgentEvent::Switched { from, to } => eprintln!("· {from} declined; continuing on {to}"),
             AgentEvent::Finished {
                 tool_calls,
                 input_tokens,
@@ -85,20 +90,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get(1)
         .map(|s| s.as_str())
         .unwrap_or("Reverse this binary and explain what it does.");
-    let llm: Box<dyn Llm> = if demo {
-        Box::new(ScriptedLlm::crackme_demo())
-    } else {
-        let key = std::env::var("ANTHROPIC_API_KEY")
-            .map_err(|_| "set ANTHROPIC_API_KEY (or use --demo)")?;
-        let model = std::env::var("CROSURE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.into());
-        Box::new(ClaudeHttp::new(
-            &key,
-            &model,
-            std::env::var("ANTHROPIC_BASE_URL").ok().as_deref(),
-        )?)
-    };
     let dir = home();
     std::fs::create_dir_all(&dir)?;
+    let chain: Vec<Box<dyn Provider>> = if demo {
+        vec![Box::new(ScriptedProvider::crackme_demo())]
+    } else {
+        let settings = std::fs::read(dir.join("agent.json"))
+            .map(|b| AgentSettings::from_json(&b))
+            .unwrap_or_default();
+        build_chain(&settings).map_err(|_| {
+            "no provider is ready: set ANTHROPIC_API_KEY, configure one in the app, or use --demo"
+        })?
+    };
     let store = Store::open(&dir.join("crosure.db"))?;
     let (ws, _) = Workspace::open(&store, std::path::Path::new(binary.as_str()), None)?;
     ws.record_task(&store, task)?;
@@ -106,13 +109,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exec = SessionExecutor {
         store: Arc::new(Mutex::new(store)),
         workspace: Arc::new(Mutex::new(Some(ws))),
-        model: llm.model().into(),
     };
-    let report = run_agent(llm.as_ref(), &exec, &Print, task, &AgentConfig::default())?;
+    let report = run_agent(&chain, &exec, &Print, task, &AgentConfig::default())?;
     let store = exec.store.lock().map_err(|_| "lock")?;
     if !report.is_empty() {
         if let Some(ws) = exec.workspace.lock().map_err(|_| "lock")?.as_ref() {
-            ws.record_report(&store, llm.model(), &report)?;
+            ws.record_report(&store, &chain[0].tag(), &report)?;
         }
         println!("{report}");
     }

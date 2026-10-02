@@ -89,20 +89,34 @@ pub fn step_outcome(state: State<'_, AppState>, step_id: String) -> Res<Outcome>
     core::step_outcome(&state, step_id)
 }
 
-/// Agent setup status.
+/// Agent dock status.
 #[tauri::command]
 pub fn agent_status(state: State<'_, AppState>) -> crate::agent::AgentStatus {
     core::agent_status(&state)
 }
 
-/// Saves an API key and/or model.
+/// Provider settings.
 #[tauri::command]
-pub fn agent_configure(
+pub fn agent_settings(state: State<'_, AppState>) -> crate::agent::SettingsView {
+    core::agent_settings(&state)
+}
+
+/// Saves provider settings.
+#[tauri::command]
+pub fn agent_save_settings(
     state: State<'_, AppState>,
-    api_key: Option<String>,
-    model: Option<String>,
-) -> Res<crate::agent::AgentStatus> {
-    core::agent_configure(&state, api_key, model)
+    settings: crosure_agent::AgentSettings,
+) -> Res<crate::agent::SettingsView> {
+    core::agent_save_settings(&state, settings)
+}
+
+/// Lists a provider's models.
+#[tauri::command]
+pub fn agent_list_models(
+    state: State<'_, AppState>,
+    provider: crosure_agent::ProviderConfig,
+) -> Res<Vec<String>> {
+    core::agent_list_models(&state, provider)
 }
 
 /// Starts the agent.
