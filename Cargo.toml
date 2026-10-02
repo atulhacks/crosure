@@ -15,6 +15,7 @@ members = [
     "crates/crosure-session",
     "crates/crosure-agent",
     "crates/crosure-mcp",
+    "crates/crosure-dataset",
     "tauri/src-tauri",
 ]
 
@@ -38,6 +39,7 @@ crosure-engine = { path = "crates/crosure-engine" }
 crosure-graph = { path = "crates/crosure-graph" }
 crosure-session = { path = "crates/crosure-session" }
 crosure-agent = { path = "crates/crosure-agent" }
+crosure-dataset = { path = "crates/crosure-dataset" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

@@ -1,0 +1,31 @@
+{
+  "format": "crosure.dataset.v1",
+  "files": [
+    "trajectories.jsonl",
+    "sft.jsonl",
+    "dpo.jsonl"
+  ],
+  "options": {
+    "sessions": [],
+    "sft": {
+      "key_path_only": true,
+      "humans_only": false,
+      "history": 40
+    },
+    "allow_unverified": false
+  },
+  "sessions": [
+    {
+      "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+      "binary": "crackme-x64",
+      "head_hash": "sha256:dc057ad0ec21ca04d56e382934c76fe6b90b8d51207908db7f15f712d65a806c",
+      "verified": true,
+      "steps": 13,
+      "sft": 7,
+      "dpo": 0
+    }
+  ],
+  "trajectories": 1,
+  "sft_examples": 7,
+  "dpo_pairs": 0
+}

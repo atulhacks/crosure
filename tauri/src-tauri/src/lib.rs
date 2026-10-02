@@ -33,6 +33,7 @@ pub fn run() {
             commands::graph,
             commands::verify,
             commands::export_session,
+            commands::export_dataset,
             commands::step_outcome,
             commands::agent_status,
             commands::agent_settings,

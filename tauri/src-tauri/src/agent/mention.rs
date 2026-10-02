@@ -69,7 +69,7 @@ fn function_block(store: &Store, ws: &mut Workspace, name: &str) -> Option<Strin
     let author = Author {
         model: None,
         intent: Some(Intent {
-            chip: None,
+            chip: Some(crosure_recorder::CONTEXT_CHIP.into()),
             note: Some("attached to an AI prompt".into()),
         }),
     };

@@ -194,6 +194,31 @@ export interface VerifyReport {
   failure: { seq: number; step_id: string | null; reason: string } | null;
 }
 
+/** One session in a dataset export (see `crosure-dataset`). */
+export interface DatasetSession {
+  session_id: string;
+  binary: string;
+  head_hash: string;
+  verified: boolean;
+  steps: number;
+  sft: number;
+  dpo: number;
+  skipped?: string;
+}
+
+/** Result of exporting a training dataset. */
+export interface DatasetExport {
+  dir: string;
+  manifest: {
+    format: string;
+    files: string[];
+    sessions: DatasetSession[];
+    trajectories: number;
+    sft_examples: number;
+    dpo_pairs: number;
+  };
+}
+
 export type Op =
   | { op: "info" }
   | { op: "disasm"; target: string }

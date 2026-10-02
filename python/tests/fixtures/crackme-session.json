@@ -1,0 +1,527 @@
+{
+ "format": "crosure.session.v1",
+ "session": {
+  "id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+  "name": "crackme-x64",
+  "binary_path": "/home/user/crosure/crates/crosure-engine/tests/fixtures/crackme-x64",
+  "binary_sha256": "sha256:1aef730b2ca62d30dd20cfed2188eea7e0849caa1e2e89167f09f2d663cf4a1f",
+  "created_ms": 1790947770379,
+  "head_hash": "sha256:dc057ad0ec21ca04d56e382934c76fe6b90b8d51207908db7f15f712d65a806c"
+ },
+ "steps": [
+  {
+   "id": "stp_01M3YCWG0EFZFK5XXS9SM67RAE",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 0,
+   "ts_ms": 1790947770382,
+   "parents": [],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "load",
+   "tool": "crosure",
+   "command": "open /home/user/crosure/crates/crosure-engine/tests/fixtures/crackme-x64",
+   "action": {
+    "backend": "native",
+    "op": "load",
+    "path": "/home/user/crosure/crates/crosure-engine/tests/fixtures/crackme-x64"
+   },
+   "target": null,
+   "observation": {
+    "summary": "ELF x86_64 64-bit, 14 functions",
+    "blob": "sha256:ac8aa7c9d278462b91fc8172c0b46bc92d992faa6a9c263cbf20fb9a7a241ffb",
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:dc7d7b3db7d938d8473cda4d5c52b5d96fddda0b4bbc2a12c6a6210549ef6095",
+   "hash": "sha256:d8ecc86ee124ce70d760b5dcb43c768f020025e21f1ef2412243c410e4fccc40"
+  },
+  {
+   "id": "stp_01M3YCWHB9YP32HW3D0V979H0X",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 1,
+   "ts_ms": 1790947771753,
+   "parents": [
+    {
+     "id": "stp_01M3YCWG0EFZFK5XXS9SM67RAE",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "disasm",
+   "tool": "crosure",
+   "command": "dis check_password",
+   "action": {
+    "addr": 4569,
+    "op": "disasm",
+    "target": "check_password"
+   },
+   "target": {
+    "addr": "0x11d9",
+    "func": "check_password",
+    "func_fp": null,
+    "section": ".text",
+    "name": "check_password"
+   },
+   "observation": {
+    "summary": "check_password: 22 instructions; calls decode, strcmp@plt; uses \"1&0&10&\"",
+    "blob": "sha256:e2fe0289c7169da7459817de915871d61e95e70312208f2951f2572eb8b5bc99",
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:d8ecc86ee124ce70d760b5dcb43c768f020025e21f1ef2412243c410e4fccc40",
+   "hash": "sha256:e348be07db79debb9e3e340d7c43d60d014011caba03f4d9a88b1d23c9e4cb4e"
+  },
+  {
+   "id": "stp_01M3YCWHWMPE3GWJEGQJ628PH9",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 2,
+   "ts_ms": 1790947772308,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHB9YP32HW3D0V979H0X",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "agent",
+   "tool": "crosure",
+   "command": "ask Explain what @check_password does and how it is used.",
+   "action": {
+    "op": "ask",
+    "prompt": "Explain what @check_password does and how it is used."
+   },
+   "target": null,
+   "observation": {
+    "summary": "asked the agent: Explain what @check_password does and how it is used.",
+    "blob": null,
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:e348be07db79debb9e3e340d7c43d60d014011caba03f4d9a88b1d23c9e4cb4e",
+   "hash": "sha256:8d4569703bee974169daa338b96f298cf7a70490c8c15b78bd4de43fc8bc0894"
+  },
+  {
+   "id": "stp_01M3YCWHWRKNND9C113WF6X4B7",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 3,
+   "ts_ms": 1790947772312,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHWMPE3GWJEGQJ628PH9",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "disasm",
+   "tool": "crosure",
+   "command": "dis check_password",
+   "action": {
+    "addr": 4569,
+    "op": "disasm",
+    "target": "check_password"
+   },
+   "target": {
+    "addr": "0x11d9",
+    "func": "check_password",
+    "func_fp": null,
+    "section": ".text",
+    "name": "check_password"
+   },
+   "observation": {
+    "summary": "check_password: 22 instructions; calls decode, strcmp@plt; uses \"1&0&10&\"",
+    "blob": "sha256:e2fe0289c7169da7459817de915871d61e95e70312208f2951f2572eb8b5bc99",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "attached to an AI prompt"
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:8d4569703bee974169daa338b96f298cf7a70490c8c15b78bd4de43fc8bc0894",
+   "hash": "sha256:5271b9251fa831370f58d36342bb7fa7de0659b6ca4735d8c4bdab4a3ac9026f"
+  },
+  {
+   "id": "stp_01M3YCWHWY90327Z2PMPR8Y09E",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 4,
+   "ts_ms": 1790947772318,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHWRKNND9C113WF6X4B7",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "strings",
+   "tool": "agent",
+   "command": "str password",
+   "action": {
+    "filter": "password",
+    "min_len": null,
+    "op": "strings"
+   },
+   "target": null,
+   "observation": {
+    "summary": "3 strings matching \"password\": \"Usage: %s <password>\", \"Wrong password\"",
+    "blob": "sha256:7acf2178e530f95675f9341fdafcad6d2669fa1086460ffede23c9bc3879c7e2",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "Find user-facing prompts about the password."
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:5271b9251fa831370f58d36342bb7fa7de0659b6ca4735d8c4bdab4a3ac9026f",
+   "hash": "sha256:573e4e04971442e57f33ed22b280f443c9e267a146480ca3ad3ef3d4842aa316"
+  },
+  {
+   "id": "stp_01M3YCWHX4Y9CWDXBYS02EBYER",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 5,
+   "ts_ms": 1790947772324,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHWY90327Z2PMPR8Y09E",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "xref",
+   "tool": "agent",
+   "command": "xt strcmp@plt",
+   "action": {
+    "addr": 4240,
+    "op": "xrefs_to",
+    "target": "strcmp@plt"
+   },
+   "target": {
+    "addr": "0x1090",
+    "func": "strcmp@plt",
+    "func_fp": null,
+    "section": ".plt.sec",
+    "name": "strcmp@plt"
+   },
+   "observation": {
+    "summary": "1 ref to strcmp@plt (1 call, 0 jump, 0 data) from check_password",
+    "blob": "sha256:47d3d2d6c66ffd9cf2d528ad6808eff47f8269b0c30caa5eb8ba1d71d0b94e6b",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "The comparison routine is the likely check."
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:573e4e04971442e57f33ed22b280f443c9e267a146480ca3ad3ef3d4842aa316",
+   "hash": "sha256:574f802b2079d0c7bbb0b859ba938cb57d8b8eaeec333e95fed4916e272a2fe4"
+  },
+  {
+   "id": "stp_01M3YCWHXC6CA1BHVT156AJY2A",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 6,
+   "ts_ms": 1790947772332,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHX4Y9CWDXBYS02EBYER",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "disasm",
+   "tool": "agent",
+   "command": "dis check_password",
+   "action": {
+    "addr": 4569,
+    "op": "disasm",
+    "target": "check_password"
+   },
+   "target": {
+    "addr": "0x11d9",
+    "func": "check_password",
+    "func_fp": null,
+    "section": ".text",
+    "name": "check_password"
+   },
+   "observation": {
+    "summary": "check_password: 22 instructions; calls decode, strcmp@plt; uses \"1&0&10&\"",
+    "blob": "sha256:e2fe0289c7169da7459817de915871d61e95e70312208f2951f2572eb8b5bc99",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "Read the function that calls strcmp."
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:574f802b2079d0c7bbb0b859ba938cb57d8b8eaeec333e95fed4916e272a2fe4",
+   "hash": "sha256:d98230d057ba51c8683bb26234d106a2c1400a46b3aee7dfdfa2f373916fcb5d"
+  },
+  {
+   "id": "stp_01M3YCWKSEVSTZ880KYQQ2RHM7",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 7,
+   "ts_ms": 1790947774254,
+   "parents": [
+    {
+     "id": "stp_01M3YCWHXC6CA1BHVT156AJY2A",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "rename",
+   "tool": "agent",
+   "command": "ren decode xor_decode",
+   "action": {
+    "addr": 4489,
+    "name": "xor_decode",
+    "op": "rename",
+    "target": "decode"
+   },
+   "target": {
+    "addr": "0x1189",
+    "func": "xor_decode",
+    "func_fp": null,
+    "section": ".text",
+    "name": "xor_decode"
+   },
+   "observation": {
+    "summary": "renamed decode → xor_decode",
+    "blob": "sha256:ccf3171df88bfe79e58028c315e106a1a20236cac7698f41211d5975d84ea5e5",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "It XORs the buffer with a key."
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:d98230d057ba51c8683bb26234d106a2c1400a46b3aee7dfdfa2f373916fcb5d",
+   "hash": "sha256:50de7e810337007083ddf44fa43178c465c954211adb9ab544ba70c02cc8a4b4"
+  },
+  {
+   "id": "stp_01M3YCWKSN2GG2BWEG7ZQGFJ88",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 8,
+   "ts_ms": 1790947774261,
+   "parents": [
+    {
+     "id": "stp_01M3YCWKSEVSTZ880KYQQ2RHM7",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "finding",
+   "tool": "agent",
+   "command": "find check_password decodes a stored secret and compares it with the input.",
+   "action": {
+    "op": "finding",
+    "text": "check_password decodes a stored secret and compares it with the input."
+   },
+   "target": null,
+   "observation": {
+    "summary": "finding: check_password decodes a stored secret and compares it with the input.",
+    "blob": "sha256:34311fd8aa977d2cf63c1b6674d415df13fd9eb7ba94e923d73a0ab9d3afdfe6",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "Confirmed in the disassembly."
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:50de7e810337007083ddf44fa43178c465c954211adb9ab544ba70c02cc8a4b4",
+   "hash": "sha256:4c8a8d384b10d28eb325a7409a6f12924c528846da7030a61fd3ba2e0d1944bd"
+  },
+  {
+   "id": "stp_01M3YCWM8E77QZXPKC0RSS722G",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 9,
+   "ts_ms": 1790947774734,
+   "parents": [
+    {
+     "id": "stp_01M3YCWKSN2GG2BWEG7ZQGFJ88",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "agent",
+   "tool": "agent",
+   "command": "report",
+   "action": {
+    "op": "report"
+   },
+   "target": null,
+   "observation": {
+    "summary": "report: Mock worker report: a password crackme.",
+    "blob": "sha256:054fd946fae03235d9526be04870cc0ffb415b7dd80d473a1fe626399e56a04f",
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:4c8a8d384b10d28eb325a7409a6f12924c528846da7030a61fd3ba2e0d1944bd",
+   "hash": "sha256:8ac3db4aef3a7964a859debbf0a4a2ff0364fb6121d4e7a9d346d66e522cad5d"
+  },
+  {
+   "id": "stp_01M3YCWPE8VS2CP2M5M48Q38K8",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 10,
+   "ts_ms": 1790947776968,
+   "parents": [
+    {
+     "id": "stp_01M3YCWM8E77QZXPKC0RSS722G",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "agent",
+   "tool": "crosure",
+   "command": "ask And what about @main ?",
+   "action": {
+    "op": "ask",
+    "prompt": "And what about @main ?"
+   },
+   "target": null,
+   "observation": {
+    "summary": "asked the agent: And what about @main ?",
+    "blob": null,
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:8ac3db4aef3a7964a859debbf0a4a2ff0364fb6121d4e7a9d346d66e522cad5d",
+   "hash": "sha256:37bb86d0cf899817db9fb39bd6b6fd9d5b83b00e11ce244f4e836a28f9a9fbe8"
+  },
+  {
+   "id": "stp_01M3YCWPED8ECTXYJK05GER203",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 11,
+   "ts_ms": 1790947776973,
+   "parents": [
+    {
+     "id": "stp_01M3YCWPE8VS2CP2M5M48Q38K8",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "human",
+    "id": "local",
+    "model": null
+   },
+   "kind": "disasm",
+   "tool": "crosure",
+   "command": "dis main",
+   "action": {
+    "addr": 4647,
+    "op": "disasm",
+    "target": "main"
+   },
+   "target": {
+    "addr": "0x1227",
+    "func": "main",
+    "func_fp": null,
+    "section": ".text",
+    "name": "main"
+   },
+   "observation": {
+    "summary": "main: 38 instructions; calls printf@plt, check_password, puts@plt; uses \"Usage: %s <password>\", \"Correct! Reporting to beacon...\" +1 more",
+    "blob": "sha256:9d662fdecc43a077b4471b51663e02a34ebae497d91194e85e0922c194aa993e",
+    "truncated": false
+   },
+   "intent": {
+    "chip": null,
+    "note": "attached to an AI prompt"
+   },
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:37bb86d0cf899817db9fb39bd6b6fd9d5b83b00e11ce244f4e836a28f9a9fbe8",
+   "hash": "sha256:c7c5d465a88d8bcb40d8961001b89efb8d618e18d0166e357f3cef642ff05016"
+  },
+  {
+   "id": "stp_01M3YCWPERX82YGRN1GD95TGQ2",
+   "session_id": "ses_01M3YCWG0BQ830S8X69J17Z56G",
+   "seq": 12,
+   "ts_ms": 1790947776984,
+   "parents": [
+    {
+     "id": "stp_01M3YCWPED8ECTXYJK05GER203",
+     "rel": "next"
+    }
+   ],
+   "actor": {
+    "type": "agent",
+    "id": "agent",
+    "model": "custom:mock-model"
+   },
+   "kind": "agent",
+   "tool": "agent",
+   "command": "report",
+   "action": {
+    "op": "report"
+   },
+   "target": null,
+   "observation": {
+    "summary": "report: Answer 2: main checks argc, then calls check_password.",
+    "blob": "sha256:bd9433dbfb2b4a77693ac223d880e86832192bb7a9f50029eb8eaf7efba3332b",
+    "truncated": false
+   },
+   "intent": null,
+   "tags": [],
+   "attention": null,
+   "prev_hash": "sha256:c7c5d465a88d8bcb40d8961001b89efb8d618e18d0166e357f3cef642ff05016",
+   "hash": "sha256:dc057ad0ec21ca04d56e382934c76fe6b90b8d51207908db7f15f712d65a806c"
+  }
+ ]
+}

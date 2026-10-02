@@ -38,6 +38,7 @@ pub fn dispatch(state: &AppState, cmd: &str, args: &Value) -> Res<Value> {
         "graph" => json(core::graph(state, arg(args, "upto")?)),
         "verify" => json(core::verify(state)),
         "export_session" => json(core::export_session(state)),
+        "export_dataset" => json(core::export_dataset(state)),
         "step_outcome" => json(core::step_outcome(state, arg(args, "stepId")?)),
         "agent_status" => json(Ok(core::agent_status(state))),
         "agent_settings" => json(Ok(core::agent_settings(state))),

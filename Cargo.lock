@@ -495,6 +495,7 @@ name = "crosure"
 version = "0.1.0"
 dependencies = [
  "crosure-agent",
+ "crosure-dataset",
  "crosure-engine",
  "crosure-graph",
  "crosure-recorder",
@@ -519,6 +520,18 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "crosure-dataset"
+version = "0.1.0"
+dependencies = [
+ "crosure-graph",
+ "crosure-recorder",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
