@@ -91,3 +91,34 @@ pub struct Xref {
     /// Function containing `from`, if known.
     pub from_func: Option<String>,
 }
+
+/// How control leaves a basic block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EdgeKind {
+    /// Conditional branch taken.
+    Taken,
+    /// Conditional branch not taken, or straight-line fall-through.
+    Fall,
+    /// Unconditional jump.
+    Jump,
+}
+
+/// A successor edge of a basic block.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockEdge {
+    pub to: u64,
+    pub kind: EdgeKind,
+}
+
+/// A straight-line run of instructions with one entry and one exit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BasicBlock {
+    pub addr: u64,
+    /// Address just past the last instruction.
+    pub end: u64,
+    /// Index of the first instruction in the function's disassembly.
+    pub first: usize,
+    pub count: usize,
+    pub succs: Vec<BlockEdge>,
+}
