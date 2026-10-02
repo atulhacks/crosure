@@ -3,8 +3,10 @@ import type {
   AgentEventPage,
   AgentSettings,
   AgentStatus,
+  Profile,
   ProviderConfig,
   SettingsView,
+  ThreadList,
   FunctionInfo,
   InvestigationGraph,
   Op,
@@ -94,8 +96,25 @@ export const agentSaveSettings = (settings: AgentSettings) =>
 export const agentListModels = (provider: ProviderConfig) =>
   invoke<string[]>("agent_list_models", { provider });
 
-/** Starts the agent on the open binary; its steps are recorded like yours. */
-export const agentStart = (prompt: string) => invoke<null>("agent_start", { prompt });
+/**
+ * Sends a prompt to the shown thread (or a new one). `@name` attaches a
+ * function's disassembly, `@#7` attaches step 7. Steps are recorded like yours.
+ */
+export const agentStart = (prompt: string, profile: Profile | null) =>
+  invoke<null>("agent_start", { prompt, profile });
+
+/** Agent threads of the open session. */
+export const agentThreads = () => invoke<ThreadList>("agent_threads");
+
+/** Shows a saved thread, or a fresh one with `null`. */
+export const agentOpenThread = (id: string | null) => invoke<null>("agent_open_thread", { id });
+
+/** Answers a pending tool-call approval. */
+export const agentDecide = (id: string, allow: boolean) =>
+  invoke<null>("agent_decide", { id, allow });
+
+/** Switches the provider runs start on. */
+export const agentSetActive = (id: string) => invoke<AgentStatus>("agent_set_active", { id });
 
 /** Agent events since a cursor. */
 export const agentEvents = (since: number) => invoke<AgentEventPage>("agent_events", { since });

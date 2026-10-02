@@ -43,7 +43,19 @@ pub fn dispatch(state: &AppState, cmd: &str, args: &Value) -> Res<Value> {
         "agent_settings" => json(Ok(core::agent_settings(state))),
         "agent_save_settings" => json(core::agent_save_settings(state, arg(args, "settings")?)),
         "agent_list_models" => json(core::agent_list_models(state, arg(args, "provider")?)),
-        "agent_start" => json(core::agent_start(state, arg(args, "prompt")?)),
+        "agent_start" => json(core::agent_start(
+            state,
+            arg(args, "prompt")?,
+            arg(args, "profile")?,
+        )),
+        "agent_threads" => json(core::agent_threads(state)),
+        "agent_open_thread" => json(core::agent_open_thread(state, arg(args, "id")?)),
+        "agent_decide" => json(core::agent_decide(
+            state,
+            arg(args, "id")?,
+            arg(args, "allow")?,
+        )),
+        "agent_set_active" => json(core::agent_set_active(state, arg(args, "id")?)),
         "agent_events" => json(Ok(core::agent_events(
             state,
             arg::<Option<usize>>(args, "since")?.unwrap_or(0),

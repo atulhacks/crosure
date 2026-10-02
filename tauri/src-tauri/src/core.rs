@@ -190,13 +190,42 @@ pub fn agent_list_models(
     state.agent.models(provider)
 }
 
-/// Starts the agent on the open binary.
-pub fn agent_start(state: &AppState, prompt: String) -> Res<()> {
+/// Sends a prompt to the shown thread (or a new one).
+pub fn agent_start(
+    state: &AppState,
+    prompt: String,
+    profile: Option<crosure_agent::Profile>,
+) -> Res<()> {
     let prompt = prompt.trim().to_string();
     if prompt.is_empty() {
         return Err("Tell the agent what to do.".into());
     }
-    crate::agent::start(state, prompt)
+    crate::agent::start(state, prompt, profile)
+}
+
+fn session_id(state: &AppState) -> Res<String> {
+    let ws = state.workspace.lock().map_err(err)?;
+    Ok(ws.as_ref().ok_or("no binary is open")?.session.id.clone())
+}
+
+/// Agent threads of the open session.
+pub fn agent_threads(state: &AppState) -> Res<crate::agent::ThreadList> {
+    Ok(state.agent.threads(&session_id(state)?))
+}
+
+/// Shows a saved thread, or a fresh one when `id` is `None`.
+pub fn agent_open_thread(state: &AppState, id: Option<String>) -> Res<()> {
+    state.agent.open_thread(&session_id(state)?, id.as_deref())
+}
+
+/// Answers a pending tool-call approval.
+pub fn agent_decide(state: &AppState, id: String, allow: bool) -> Res<()> {
+    state.agent.decide(&id, allow)
+}
+
+/// Switches the provider runs start on.
+pub fn agent_set_active(state: &AppState, id: String) -> Res<crate::agent::AgentStatus> {
+    state.agent.set_active(&id)
 }
 
 /// Agent events since `since`.

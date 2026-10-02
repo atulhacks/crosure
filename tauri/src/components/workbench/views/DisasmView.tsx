@@ -1,5 +1,8 @@
+import { Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { hex } from "../../../lib/format";
+import { useAgent } from "../../../store/agent";
+import { useUi } from "../../../store/ui";
 import { useWorkbench } from "../../../store/workbench";
 import type { BasicBlock, Instruction } from "../../../types";
 import { Button } from "../../ui/Button";
@@ -31,6 +34,8 @@ export function useFollow(): Follow {
 export function FunctionHeader({ fn, count }: { fn: DisasmResult["function"]; count: number }) {
   const act = useWorkbench((s) => s.act);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const setDraft = useAgent((s) => s.setDraft);
+  const setDockTab = useUi((s) => s.setDockTab);
   return (
     <div className="flex h-10 items-center gap-3 border-b px-4">
       {renaming === null ? (
@@ -66,6 +71,16 @@ export function FunctionHeader({ fn, count }: { fn: DisasmResult["function"]; co
         {hex(fn.addr)} · {fn.size} bytes · {count} insns
       </span>
       <div className="ml-auto flex gap-1">
+        <Button
+          variant="ghost"
+          title="Ask the AI agent about this function (attaches its disassembly)"
+          onClick={() => {
+            setDraft(`Explain what @${fn.name} does and how it is used.`);
+            setDockTab("agent");
+          }}
+        >
+          <Sparkles size={13} className="text-brand" /> Ask AI
+        </Button>
         <Button variant="ghost" onClick={() => setRenaming(fn.name)}>
           Rename
         </Button>

@@ -119,10 +119,38 @@ pub fn agent_list_models(
     core::agent_list_models(&state, provider)
 }
 
-/// Starts the agent.
+/// Sends a prompt to the agent.
 #[tauri::command]
-pub fn agent_start(state: State<'_, AppState>, prompt: String) -> Res<()> {
-    core::agent_start(&state, prompt)
+pub fn agent_start(
+    state: State<'_, AppState>,
+    prompt: String,
+    profile: Option<crosure_agent::Profile>,
+) -> Res<()> {
+    core::agent_start(&state, prompt, profile)
+}
+
+/// Agent threads of the open session.
+#[tauri::command]
+pub fn agent_threads(state: State<'_, AppState>) -> Res<crate::agent::ThreadList> {
+    core::agent_threads(&state)
+}
+
+/// Shows a thread (or a fresh one).
+#[tauri::command]
+pub fn agent_open_thread(state: State<'_, AppState>, id: Option<String>) -> Res<()> {
+    core::agent_open_thread(&state, id)
+}
+
+/// Answers a pending approval.
+#[tauri::command]
+pub fn agent_decide(state: State<'_, AppState>, id: String, allow: bool) -> Res<()> {
+    core::agent_decide(&state, id, allow)
+}
+
+/// Switches the active provider.
+#[tauri::command]
+pub fn agent_set_active(state: State<'_, AppState>, id: String) -> Res<crate::agent::AgentStatus> {
+    core::agent_set_active(&state, id)
 }
 
 /// Agent events since a cursor.

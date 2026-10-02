@@ -39,6 +39,10 @@ pub fn run() {
             commands::agent_save_settings,
             commands::agent_list_models,
             commands::agent_start,
+            commands::agent_threads,
+            commands::agent_open_thread,
+            commands::agent_decide,
+            commands::agent_set_active,
             commands::agent_events,
             commands::agent_stop,
         ])

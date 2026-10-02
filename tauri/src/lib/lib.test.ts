@@ -6,6 +6,7 @@ import { layoutCfg } from "./cfgLayout";
 import { hexRows } from "./hexdump";
 import { layoutGraph } from "./layout";
 import { nextParent } from "./parent";
+import { splitPrompt } from "./prompt";
 import type { GraphNode } from "../types";
 
 const node = (id: string, seq: number, key = false): GraphNode => ({
@@ -173,5 +174,45 @@ describe("isReady", () => {
     expect(isReady({ ...d, model: "m", key_source: "env" })).toBe(true);
     expect(isReady({ ...d, model: "m", base_url: "http://localhost:1234/v1" })).toBe(true);
     expect(isReady({ ...d, model: "m", api_key: "sk", enabled: false })).toBe(false);
+  });
+});
+
+describe("agent helpers", () => {
+  it("finds the mention being typed", async () => {
+    const { mentionAt } = await import("../components/agent/Composer");
+    expect(mentionAt("explain @che", 12)).toEqual({ start: 8, query: "che" });
+    expect(mentionAt("explain @#4", 11)?.query).toBe("#4");
+    expect(mentionAt("mail me@x", 9)).toBeNull();
+    expect(mentionAt("@main done", 10)).toBeNull();
+  });
+  it("tracks pending approvals and usage", async () => {
+    const { pendingApprovals, latestUsage } = await import("../store/agent");
+    const req = { id: "a", tool: "rename_function", command: "ren x y", why: "w" };
+    const events = [
+      { type: "approval_requested" as const, request: req },
+      { type: "usage" as const, input_tokens: 1000, output_tokens: 200 },
+    ];
+    expect(pendingApprovals(events).map((r) => r.id)).toEqual(["a"]);
+    expect(
+      pendingApprovals([...events, { type: "approval_resolved" as const, id: "a", allowed: true }]),
+    ).toEqual([]);
+    expect(latestUsage(events)).toBe(1200);
+  });
+  it("toggles confirm-before-changes", async () => {
+    const { confirmsChanges, withConfirm } = await import("../components/agent/BehaviourForm");
+    const on = withConfirm({ disassemble: "allow" }, true);
+    expect(confirmsChanges(on)).toBe(true);
+    expect(on.disassemble).toBe("allow");
+    expect(confirmsChanges(withConfirm(on, false))).toBe(false);
+  });
+});
+
+describe("splitPrompt", () => {
+  it("hides attached context", () => {
+    expect(splitPrompt("why?\n\nAttached context:\n### @main")).toEqual({
+      text: "why?",
+      attached: true,
+    });
+    expect(splitPrompt("plain")).toEqual({ text: "plain", attached: false });
   });
 });
