@@ -31,9 +31,38 @@ supported:
 
 - **Anthropic Messages API.** The default model is `claude-opus-5-5`. Requests
   use adaptive thinking, prompt caching and strict tool schemas.
-- **OpenAI-compatible chat completions.** This covers OpenAI, Google Gemini,
-  OpenRouter, Groq, DeepSeek, Mistral, Ollama, LM Studio and any custom
-  server.
+- **OpenAI-compatible chat completions.** This covers most other hosted
+  APIs, local servers and any custom server.
+
+Every preset below can be edited after you add it, including the base URL
+(for example, to switch to a China-region endpoint).
+
+| Preset | Base URL | Key variable |
+| --- | --- | --- |
+| Anthropic Claude | `https://api.anthropic.com` | `ANTHROPIC_API_KEY` |
+| OpenAI | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
+| DeepSeek | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
+| Z.ai (GLM) | `https://api.z.ai/api/paas/v4` (mainland China: `https://open.bigmodel.cn/api/paas/v4`; GLM Coding Plan: `https://api.z.ai/api/coding/paas/v4`) | `ZAI_API_KEY` |
+| Moonshot (Kimi) | `https://api.moonshot.ai/v1` (mainland China: `https://api.moonshot.cn/v1`) | `MOONSHOT_API_KEY` |
+| xAI (Grok) | `https://api.x.ai/v1` | `XAI_API_KEY` |
+| Alibaba Qwen | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
+| Mistral, OpenRouter, Groq, Together, Fireworks, Cerebras | their `/v1` endpoints | `<NAME>_API_KEY` |
+| Ollama, LM Studio, llama.cpp, vLLM | `localhost` (ports 11434, 1234, 8080, 8000) | none |
+| Custom (OpenAI-compatible) | any `…/v1` | optional |
+| Custom (Anthropic-compatible) | e.g. `https://api.z.ai/api/anthropic`, `https://api.moonshot.ai/anthropic`, `https://api.deepseek.com/anthropic` | required |
+
+**Reasoning models.** Several thinking models must get their reasoning back
+on every tool-call turn, or they reject the request. This includes Kimi K2
+Thinking, DeepSeek's thinking mode, GLM, and Gemini 3 (its thought
+signatures in `extra_content`). Crosure sends that data back only to the
+provider that produced it, in the same field. After a fallback, the next
+provider sees just the text and tool calls.
+
+**Anthropic-compatible servers.** For any server other than
+`api.anthropic.com`, the request is a plain Messages API call. Claude-only
+fields (adaptive thinking, effort, server-side fallback, cache control) and
+the beta header are left out.
 
 Each provider has a label, base URL, model and key. A key can be saved, read
 from an environment variable, or left out for local servers. Keys never reach

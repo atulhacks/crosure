@@ -127,12 +127,35 @@ pub(crate) fn parse_anthropic(resp: &Value) -> Turn {
     }
 }
 
+/// Whether `base_url` is Anthropic's own API (other servers only speak the
+/// Messages format, not its betas).
+pub(crate) fn first_party(base_url: &str) -> bool {
+    base_url.to_lowercase().contains("api.anthropic.com")
+}
+
+/// Drops Claude-API-only fields for Anthropic-compatible servers (Z.ai,
+/// Moonshot, DeepSeek, MiniMax, proxies), which may reject them.
+///
+/// ```
+/// let mut body = serde_json::json!({ "model": "glm-4.6", "fallbacks": "default", "messages": [] });
+/// crosure_agent::anthropic_compatible(&mut body);
+/// assert!(body.get("fallbacks").is_none() && body.get("model").is_some());
+/// ```
+pub fn compatible(body: &mut Value) {
+    if let Some(o) = body.as_object_mut() {
+        for k in ["thinking", "output_config", "fallbacks", "cache_control"] {
+            o.remove(k);
+        }
+    }
+}
+
 /// Claude over the Messages API (raw HTTP: Rust has no official Anthropic SDK).
 pub struct AnthropicProvider {
     id: String,
     model: String,
     base_url: String,
     api_key: String,
+    claude_api: bool,
     http: Http,
 }
 
@@ -147,16 +170,27 @@ impl AnthropicProvider {
             model: model.into(),
             base_url: base_url.trim_end_matches('/').into(),
             api_key: api_key.trim().into(),
+            claude_api: first_party(base_url),
             http: Http::new()?,
         })
     }
 
-    pub(crate) fn headers(api_key: &str) -> Vec<(&'static str, String)> {
-        vec![
+    /// Overrides whether the server is Anthropic's own API (decided from the
+    /// URL by default). Off, requests drop Claude-API-only fields and betas.
+    pub fn with_claude_api(mut self, on: bool) -> Self {
+        self.claude_api = on;
+        self
+    }
+
+    pub(crate) fn headers(api_key: &str, claude_api: bool) -> Vec<(&'static str, String)> {
+        let mut h = vec![
             ("x-api-key", api_key.to_string()),
             ("anthropic-version", API_VERSION.to_string()),
-            ("anthropic-beta", FALLBACK_BETA.to_string()),
-        ]
+        ];
+        if claude_api {
+            h.push(("anthropic-beta", FALLBACK_BETA.to_string()));
+        }
+        h
     }
 }
 
@@ -168,11 +202,13 @@ impl Provider for AnthropicProvider {
         &self.model
     }
     fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
-        let body = anthropic_request(&self.id, &self.model, t);
+        let mut body = anthropic_request(&self.id, &self.model, t);
+        if !self.claude_api {
+            compatible(&mut body);
+        }
         let url = format!("{}/v1/messages", self.base_url);
-        let resp = self
-            .http
-            .call(&url, &Self::headers(&self.api_key), Some(&body))?;
+        let headers = Self::headers(&self.api_key, self.claude_api);
+        let resp = self.http.call(&url, &headers, Some(&body))?;
         Ok(parse_anthropic(&resp))
     }
 }
