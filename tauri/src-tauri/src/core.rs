@@ -163,3 +163,37 @@ pub fn step_outcome(state: &AppState, step_id: String) -> Res<Outcome> {
     };
     Ok(Outcome { step, result })
 }
+
+/// Agent setup status (never the key).
+pub fn agent_status(state: &AppState) -> crate::agent::AgentStatus {
+    state.agent.status()
+}
+
+/// Saves an API key and/or model for the agent.
+pub fn agent_configure(
+    state: &AppState,
+    api_key: Option<String>,
+    model: Option<String>,
+) -> Res<crate::agent::AgentStatus> {
+    state.agent.save(api_key, model)?;
+    Ok(state.agent.status())
+}
+
+/// Starts the agent on the open binary.
+pub fn agent_start(state: &AppState, prompt: String) -> Res<()> {
+    let prompt = prompt.trim().to_string();
+    if prompt.is_empty() {
+        return Err("Tell the agent what to do.".into());
+    }
+    crate::agent::start(state, prompt)
+}
+
+/// Agent events since `since`.
+pub fn agent_events(state: &AppState, since: usize) -> crate::agent::EventPage {
+    state.agent.page(since)
+}
+
+/// Stops the running agent after its current call.
+pub fn agent_stop(state: &AppState) {
+    state.agent.request_stop();
+}

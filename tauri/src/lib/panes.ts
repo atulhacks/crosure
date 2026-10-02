@@ -6,13 +6,13 @@ export interface PaneSizes {
   inspector: number;
 }
 
-export const PANE_DEFAULTS: PaneSizes = { left: 248, right: 440, console: 168, inspector: 236 };
+export const PANE_DEFAULTS: PaneSizes = { left: 248, right: 440, console: 168, inspector: 380 };
 
 export const PANE_LIMITS: Record<keyof PaneSizes, [number, number]> = {
   left: [180, 480],
   right: [320, 760],
   console: [72, 480],
-  inspector: [120, 520],
+  inspector: [140, 760],
 };
 
 /**

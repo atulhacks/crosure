@@ -1,6 +1,8 @@
 import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow } from "@xyflow/react";
 import { useEffect, useMemo } from "react";
+import { NODE_SIZE } from "../../lib/format";
 import { layoutGraph } from "../../lib/layout";
+import { useUi } from "../../store/ui";
 import { useWorkbench } from "../../store/workbench";
 import { StepNode } from "./StepNode";
 
@@ -11,27 +13,35 @@ function Flow() {
   const selected = useWorkbench((s) => s.selected);
   const branchFrom = useWorkbench((s) => s.branchFrom);
   const selectNode = useWorkbench((s) => s.selectNode);
-  const { fitView } = useReactFlow();
+  const setDockTab = useUi((s) => s.setDockTab);
+  const { fitView, setCenter } = useReactFlow();
   const laid = useMemo(
     () => layoutGraph(graph?.nodes ?? [], graph?.edges ?? [], selected, branchFrom),
     [graph, selected, branchFrom],
   );
   const count = graph?.nodes.length ?? 0;
+  const last = laid.nodes.at(-1)?.position;
+  // Small graphs fit the view; larger ones follow the newest step at a readable zoom.
   useEffect(() => {
-    const t = setTimeout(() => fitView({ padding: 0.12, maxZoom: 1, duration: 200 }), 30);
+    const t = setTimeout(() => {
+      if (count <= 7 || !last) fitView({ padding: 0.12, maxZoom: 1, duration: 200 });
+      else setCenter(last.x + NODE_SIZE.w / 2, last.y - NODE_SIZE.h, { zoom: 0.85, duration: 250 });
+    }, 30);
     return () => clearTimeout(t);
-  }, [count, fitView]);
+  }, [count, last?.x, last?.y, fitView, setCenter]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <ReactFlow
       nodes={laid.nodes}
       edges={laid.edges}
       nodeTypes={nodeTypes}
-      onNodeClick={(_, n) => selectNode(n.id)}
+      onNodeClick={(_, n) => {
+        selectNode(n.id);
+        setDockTab("step");
+      }}
       onPaneClick={() => selectNode(null)}
       nodesDraggable={false}
       nodesConnectable={false}
       minZoom={0.2}
-      proOptions={{ hideAttribution: true }}
     >
       <Background color="var(--border)" gap={18} size={1} />
       <Controls showInteractive={false} position="bottom-left" />

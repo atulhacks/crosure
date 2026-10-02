@@ -19,6 +19,15 @@
 | 6. Timeline replay | Done |
 | 7. Export | Session JSON done. **SFT/DPO/trajectory exporters pending** (`crosure-dataset`) |
 
+**AI agent (built):**
+- `crosure-agent`: Claude reverses a binary through Crosure's own recorded
+  ops, with a required `why` on every call.
+- In the app: an Agent dock that shows reasoning, tool-call cards linked to
+  graph steps, and the final report.
+- From the terminal: the `crosure-reverse` command.
+- Not yet run against the live API from the build environment (no key there):
+  the loop is tested end to end with a scripted model.
+
 Crates built so far: `crosure-recorder`, `crosure-engine`, `crosure-graph`,
 `crosure-session` (the single "run op + record step" choke point, used by
 the app and later by the agent), plus the Tauri app with a dev HTTP bridge

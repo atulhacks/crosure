@@ -62,7 +62,6 @@ function Graph({ r }: { r: DisasmResult }) {
       nodesDraggable={false}
       nodesConnectable={false}
       minZoom={0.15}
-      proOptions={{ hideAttribution: true }}
     >
       <Background color="var(--border)" gap={20} size={1} />
       <Controls showInteractive={false} position="bottom-left" />

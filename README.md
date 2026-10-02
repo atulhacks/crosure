@@ -9,6 +9,42 @@ Built for Innoventure 4.0 (Amity University). Full plan: [docs/PLAN.md](docs/PLA
 
 ![Crosure workbench](docs/media/workbench.png)
 
+## Ask the AI to reverse a file
+
+Click **Ask AI** (Ctrl+L), or run it from the terminal:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...        # or save the key in the app
+cargo run -p crosure-agent --bin crosure-reverse -- ./sample "Find how the input is validated"
+```
+
+**How it works:**
+- Claude (`claude-opus-5-5` by default) reverses the binary using the same
+  operations you have: functions, disassembly, xrefs, strings, imports, hex,
+  rename, comment, hypothesis, finding, verdict.
+- Every tool call goes through the recorder, so it lands on the investigation
+  graph as an **AI** step, hash-chained. It carries the model's **reason**
+  (`why`), which is required on every call.
+- The agent finishes with a Markdown report: summary, key functions,
+  indicators, verdict and open questions.
+- You can click any AI step to inspect it, branch from it, or tag it.
+- Human and AI steps share one graph, so the dataset gets expert *and* model
+  trajectories with rationale.
+
+**Implementation:**
+- The agent lives in `crates/crosure-agent`. It calls the Claude Messages API
+  over raw HTTP (Rust has no official Anthropic SDK).
+- **Requests:** adaptive thinking (summarized), `effort: high`, strict tool
+  schemas and prompt caching.
+- **Safety declines:** requests opt into `fallbacks: "default"`, and a
+  `refusal` is shown to you with its category. For real malware work, see
+  Anthropic's Cyber Verification Program.
+- **Offline demo:** `CROSURE_AGENT_DEMO=1` (app) or `--demo` (CLI) runs a
+  clearly labelled scripted model on the bundled crackme, so the loop, the
+  recording and the UI can be shown without a key.
+
+![AI agent](docs/media/agent.png)
+
 ## What works today
 
 - **Open ELF / PE / Mach-O binaries** with a pure-Rust engine (`object` + Capstone):

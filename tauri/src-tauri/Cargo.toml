@@ -24,6 +24,7 @@ crosure-recorder.workspace = true
 crosure-engine.workspace = true
 crosure-graph.workspace = true
 crosure-session.workspace = true
+crosure-agent.workspace = true
 
 tiny_http = { version = "0.12", optional = true }
 

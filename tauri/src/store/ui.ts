@@ -12,6 +12,9 @@ interface UiState {
   invMode: "graph" | "log";
   /** Disassembly tab: linear listing or basic-block graph. */
   disasmMode: "linear" | "graph";
+  /** Bottom of the investigation column: the AI agent or the selected step. */
+  dockTab: "agent" | "step";
+  setDockTab: (t: "agent" | "step") => void;
   setTheme: (t: Theme) => void;
   setPane: (key: keyof PaneSizes, px: number, persist?: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -42,6 +45,8 @@ export const useUi = create<UiState>((set, get) => ({
   consoleOpen: true,
   invMode: "graph",
   disasmMode: "linear",
+  dockTab: "agent",
+  setDockTab: (dockTab) => set({ dockTab }),
   setTheme: (theme) => {
     applyTheme(theme);
     try {

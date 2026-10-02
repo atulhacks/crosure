@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 pub enum Origin {
     Ui,
     Console,
+    /// An AI agent's tool call.
+    Agent,
 }
 
 /// One analysis action. `target` accepts a name (`main`, `strcmp`) or an
@@ -15,6 +17,9 @@ pub enum Origin {
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Op {
     Info,
+    Functions {
+        filter: Option<String>,
+    },
     Disasm {
         target: String,
     },
@@ -65,6 +70,7 @@ impl Op {
     pub fn kind(&self) -> StepKind {
         match self {
             Op::Info => StepKind::Recon,
+            Op::Functions { .. } => StepKind::Functions,
             Op::Disasm { .. } => StepKind::Disasm,
             Op::XrefsTo { .. } | Op::XrefsFrom { .. } => StepKind::Xref,
             Op::Strings { .. } => StepKind::Strings,
@@ -109,6 +115,10 @@ impl Op {
     pub fn command(&self) -> String {
         match self {
             Op::Info => "info".into(),
+            Op::Functions { filter } => match filter {
+                Some(f) => format!("fns {f}"),
+                None => "fns".into(),
+            },
             Op::Disasm { target } => format!("dis {target}"),
             Op::XrefsTo { target } => format!("xt {target}"),
             Op::XrefsFrom { target } => format!("xf {target}"),

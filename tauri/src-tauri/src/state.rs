@@ -1,13 +1,14 @@
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crosure_recorder::Store;
 use crosure_session::Workspace;
 
 /// App-wide state. Lock order is always `store` then `workspace`.
 pub struct AppState {
-    pub store: Mutex<Store>,
-    pub workspace: Mutex<Option<Workspace>>,
+    pub store: Arc<Mutex<Store>>,
+    pub workspace: Arc<Mutex<Option<Workspace>>>,
+    pub agent: Arc<crate::agent::AgentRuntime>,
     pub home: PathBuf,
 }
 
@@ -25,8 +26,9 @@ impl AppState {
         std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
         let store = Store::open(&home.join("crosure.db")).map_err(|e| e.to_string())?;
         Ok(Self {
-            store: Mutex::new(store),
-            workspace: Mutex::new(None),
+            store: Arc::new(Mutex::new(store)),
+            workspace: Arc::new(Mutex::new(None)),
+            agent: Arc::new(crate::agent::AgentRuntime::new(&home)),
             home,
         })
     }

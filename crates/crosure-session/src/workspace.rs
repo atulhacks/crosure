@@ -187,6 +187,45 @@ impl Workspace {
         }
     }
 
+    /// Records the analyst asking the agent to do something (a human `agent` step).
+    pub fn record_task(&self, store: &Store, prompt: &str) -> Result<Step, SessionError> {
+        let mut s = NewStep::human(StepKind::Agent, "crosure");
+        s.command = Some(format!("ask {prompt}"));
+        s.action = json!({ "op": "ask", "prompt": prompt });
+        s.observation = Observation {
+            summary: format!("asked the agent: {prompt}"),
+            blob: None,
+            truncated: false,
+        };
+        Ok(store.record(&self.session.id, s)?)
+    }
+
+    /// Records the agent's final report (an agent-authored `agent` step; full text in the blob).
+    pub fn record_report(
+        &self,
+        store: &Store,
+        model: &str,
+        report: &str,
+    ) -> Result<Step, SessionError> {
+        let mut s = NewStep::agent(StepKind::Agent, "agent", model);
+        let headline = report
+            .lines()
+            .map(|l| l.trim().trim_start_matches('#').trim())
+            .find(|l| !l.is_empty() && !l.starts_with('*') && !l.eq_ignore_ascii_case("summary"))
+            .unwrap_or("report")
+            .chars()
+            .take(160)
+            .collect::<String>();
+        s.command = Some("report".into());
+        s.action = json!({ "op": "report" });
+        s.observation = Observation {
+            summary: format!("report: {headline}"),
+            blob: Some(store.put_blob(report.as_bytes())?),
+            truncated: false,
+        };
+        Ok(store.record(&self.session.id, s)?)
+    }
+
     /// Adds intent and/or tags to an earlier step (as a new `annotate` step;
     /// recorded steps are never edited).
     pub fn annotate(

@@ -164,7 +164,12 @@ body {
   box-shadow: none;
 }
 .react-flow__attribution {
-  display: none;
+  background: transparent;
+  opacity: 0.45;
+}
+.react-flow__attribution a {
+  color: var(--faint);
+  font-size: 9px;
 }
 div.react-flow__controls {
   background: var(--elevated);

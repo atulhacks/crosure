@@ -66,6 +66,7 @@ export default function App() {
   const opened = useWorkbench((s) => s.opened);
   const theme = useUi((s) => s.theme);
   const toggleConsole = useUi((s) => s.toggleConsole);
+  const setDockTab = useUi((s) => s.setDockTab);
   useEffect(() => applyTheme(theme), [theme]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -73,10 +74,14 @@ export default function App() {
         e.preventDefault();
         toggleConsole();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        setDockTab("agent");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleConsole]);
+  }, [toggleConsole, setDockTab]);
   return (
     <div className="flex h-full flex-col">
       <TitleBar />

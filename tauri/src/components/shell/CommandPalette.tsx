@@ -15,7 +15,8 @@ interface Item {
 
 /** Ctrl+K: go to any function, run any action, or send a console command. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, toggleConsole, setInvMode, setDisasmMode } = useUi();
+  const { paletteOpen, setPaletteOpen, toggleConsole, setInvMode, setDisasmMode, setDockTab } =
+    useUi();
   const { functions, act, openTab, verify, exportSession, runConsole, opened } = useWorkbench();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -41,6 +42,7 @@ export function CommandPalette() {
       icon: <Play size={12} />,
     });
     return [
+      a("agent", "Ask the AI agent", () => setDockTab("agent"), "Ctrl+L"),
       a("strings", "Show strings", () => openTab("strings")),
       a("imports", "Show imports", () => openTab("imports")),
       a("info", "Binary info", () => act({ op: "info" })),
@@ -55,7 +57,17 @@ export function CommandPalette() {
       a("cfg", "Disassembly: block graph", () => setDisasmMode("graph")),
       a("linear", "Disassembly: linear", () => setDisasmMode("linear")),
     ];
-  }, [act, openTab, verify, exportSession, toggleConsole, setInvMode, setDisasmMode, opened]);
+  }, [
+    act,
+    openTab,
+    verify,
+    exportSession,
+    toggleConsole,
+    setInvMode,
+    setDisasmMode,
+    setDockTab,
+    opened,
+  ]);
 
   const items: Item[] = useMemo(() => {
     const fns = fuzzyFilter(q, functions, (f) => f.name, 40).map((f) => ({

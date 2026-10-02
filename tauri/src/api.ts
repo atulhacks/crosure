@@ -1,5 +1,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
+  AgentEventPage,
+  AgentStatus,
   FunctionInfo,
   InvestigationGraph,
   Op,
@@ -74,3 +76,19 @@ export const exportSession = () => invoke<string>("export_session");
 
 /** Re-opens an earlier step's stored result (does not record anything). */
 export const stepOutcome = (stepId: string) => invoke<Outcome>("step_outcome", { stepId });
+
+/** Agent setup status (the key itself is never returned). */
+export const agentStatus = () => invoke<AgentStatus>("agent_status");
+
+/** Saves an Anthropic API key and/or model for the agent. */
+export const agentConfigure = (apiKey: string | null, model: string | null) =>
+  invoke<AgentStatus>("agent_configure", { apiKey, model });
+
+/** Starts the agent on the open binary; its steps are recorded like yours. */
+export const agentStart = (prompt: string) => invoke<null>("agent_start", { prompt });
+
+/** Agent events since a cursor. */
+export const agentEvents = (since: number) => invoke<AgentEventPage>("agent_events", { since });
+
+/** Asks the agent to stop after its current call. */
+export const agentStop = () => invoke<null>("agent_stop");

@@ -207,3 +207,41 @@ export type Op =
   | { op: "hypothesis"; text: string }
   | { op: "finding"; text: string }
   | { op: "verdict"; verdict: string; family: string | null; text: string };
+
+export interface AgentStatus {
+  configured: boolean;
+  source: "env" | "saved" | "demo" | "none";
+  model: string;
+  running: boolean;
+}
+
+export type AgentEvent =
+  | { type: "started"; prompt: string; model: string }
+  | { type: "thinking"; text: string }
+  | { type: "message"; text: string }
+  | {
+      type: "tool_call";
+      tool: string;
+      command: string;
+      why: string;
+      step_id: string | null;
+      summary: string | null;
+      error: string | null;
+    }
+  | { type: "refusal"; category: string | null; explanation: string | null }
+  | {
+      type: "finished";
+      report: string;
+      turns: number;
+      tool_calls: number;
+      input_tokens: number;
+      output_tokens: number;
+    }
+  | { type: "failed"; error: string }
+  | { type: "stopped" };
+
+export interface AgentEventPage {
+  events: AgentEvent[];
+  next: number;
+  running: boolean;
+}

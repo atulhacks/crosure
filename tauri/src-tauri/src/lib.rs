@@ -1,5 +1,6 @@
 //! Crosure desktop app: Tauri commands over the session, recorder and graph crates.
 
+mod agent;
 mod commands;
 pub mod core;
 mod dispatch;
@@ -33,6 +34,11 @@ pub fn run() {
             commands::verify,
             commands::export_session,
             commands::step_outcome,
+            commands::agent_status,
+            commands::agent_configure,
+            commands::agent_start,
+            commands::agent_events,
+            commands::agent_stop,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = result {

@@ -26,5 +26,5 @@ mod workspace;
 pub use console::{parse_command, CONSOLE_HELP};
 pub use error::SessionError;
 pub use op::{Op, Origin};
-pub use run::Outcome;
+pub use run::{Author, Outcome};
 pub use workspace::Workspace;

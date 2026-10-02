@@ -3,6 +3,7 @@ import * as api from "../api";
 import { nextParent } from "../lib/parent";
 import type {
   FunctionInfo,
+  GraphNode,
   InvestigationGraph,
   Op,
   Opened,
@@ -48,6 +49,8 @@ interface WorkbenchState {
   close: () => void;
   /** Seq of the newest step (for the timeline), tracked from the live graph. */
   headSeq: number;
+  /** Every step of the live graph, for the timeline while replaying. */
+  timeline: GraphNode[];
   act: (op: Op, opts?: { fromView?: boolean; parent?: ParentRef }) => Promise<Outcome | null>;
   runConsole: (line: string) => Promise<void>;
   selectNode: (id: string | null) => Promise<void>;
@@ -142,6 +145,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
     error: null,
     busy: false,
     headSeq: 0,
+    timeline: [],
 
     refreshSessions: async () => {
       const sessions = await guarded(api.listSessions);
@@ -204,7 +208,12 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
       const upto = get().upto;
       const graph = await guarded(() => api.graph(upto));
       if (graph)
-        set({ graph, ...(upto === null ? { headSeq: graph.nodes.at(-1)?.seq ?? 0 } : {}) });
+        set({
+          graph,
+          ...(upto === null
+            ? { headSeq: graph.nodes.at(-1)?.seq ?? 0, timeline: graph.nodes }
+            : {}),
+        });
     },
     verify: async () => {
       const verifyReport = await guarded(api.verify);
