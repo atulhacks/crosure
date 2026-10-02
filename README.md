@@ -31,17 +31,24 @@ cargo run -p crosure-agent --bin crosure-reverse -- ./sample "Find how the input
 - Human and AI steps share one graph, so the dataset gets expert *and* model
   trajectories with rationale.
 
-**Implementation:**
-- The agent lives in `crates/crosure-agent`. It calls the Claude Messages API
-  over raw HTTP (Rust has no official Anthropic SDK).
-- **Requests:** adaptive thinking (summarized), `effort: high`, strict tool
-  schemas and prompt caching.
-- **Safety declines:** requests opt into `fallbacks: "default"`, and a
-  `refusal` is shown to you with its category. For real malware work, see
-  Anthropic's Cyber Verification Program.
+**Providers and controls** ([docs/ai-agent.md](docs/ai-agent.md)):
+- Supported providers:
+  - Anthropic Claude;
+  - any OpenAI-compatible server (OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral);
+  - local Ollama or LM Studio.
+- Steps record the provider and model that took them.
+- If a provider declines, the same conversation can continue on the next
+  provider in your list.
+- Profiles (Investigate, Read-only, Ask) limit which tools the model gets.
+- Per-tool permissions (allow, confirm, deny): on confirm the run pauses for
+  your **Allow** or **Deny**, and denied calls are not recorded.
+- Saved conversations per binary, with follow-ups.
+- `@function` and `@#step` attach context to a prompt.
+- Custom instructions are added to every thread.
+- `crosure-mcp` serves the same recorded tools to any MCP client:
+  `claude mcp add crosure -- crosure-mcp ./sample`.
 - **Offline demo:** `CROSURE_AGENT_DEMO=1` (app) or `--demo` (CLI) runs a
-  clearly labelled scripted model on the bundled crackme, so the loop, the
-  recording and the UI can be shown without a key.
+  clearly labelled scripted model on the bundled crackme.
 
 ![AI agent](docs/media/agent.png)
 
@@ -112,10 +119,12 @@ crates/
   crosure-engine/     Engine trait + native backend (ELF/PE/Mach-O, x86/x64/ARM/AArch64)
   crosure-graph/      investigation graph: typed edges, annotations folded, key paths, replay, stats
   crosure-session/    runs ops on the engine and records each one; console parser
+  crosure-agent/      AI agent: providers, tools, profiles, permissions, threads; crosure-reverse CLI
+  crosure-mcp/        MCP server exposing the recorded tools to other agents
 tauri/
   src/                React 19 + TypeScript frontend (Tailwind v4, React Flow, Zustand)
   src-tauri/          Tauri 2 app: thin commands over crosure-session; optional dev bridge
-docs/PLAN.md          full product plan
+docs/                overview, plan, AI agent
 ```
 
 ## Run it
