@@ -2,8 +2,8 @@ use serde_json::{json, Value};
 
 use super::http::Http;
 use super::Provider;
-use crate::prompt::SYSTEM_PROMPT;
-use crate::tools::tool_definitions;
+use crate::tools::tool_definitions_for;
+use crate::Profile;
 use crate::{AgentError, Block, Entry, Stop, Transcript, Turn};
 
 /// Makes a strict-mode schema acceptable to lenient servers: `["string","null"]`
@@ -33,8 +33,8 @@ fn relax(schema: &Value) -> Value {
     }
 }
 
-fn tools(strict: bool) -> Vec<Value> {
-    tool_definitions()
+fn tools(profile: Profile, strict: bool) -> Vec<Value> {
+    tool_definitions_for(profile)
         .as_array()
         .cloned()
         .unwrap_or_default()
@@ -61,13 +61,13 @@ fn tools(strict: bool) -> Vec<Value> {
 ///
 /// ```
 /// use crosure_agent::{openai_request, Entry, Transcript};
-/// let t = Transcript { entries: vec![Entry::User("hi".into())] };
+/// let t = Transcript { entries: vec![Entry::User("hi".into())], ..Default::default() };
 /// let body = openai_request("qwen2.5-coder:14b", &t, false);
 /// assert_eq!(body["messages"][0]["role"], "system");
 /// assert_eq!(body["tools"][0]["type"], "function");
 /// ```
 pub fn openai_request(model: &str, t: &Transcript, strict: bool) -> Value {
-    let mut messages = vec![json!({ "role": "system", "content": SYSTEM_PROMPT })];
+    let mut messages = vec![json!({ "role": "system", "content": t.system_prompt() })];
     for e in &t.entries {
         match e {
             Entry::User(text) => messages.push(json!({ "role": "user", "content": text })),
@@ -106,7 +106,13 @@ pub fn openai_request(model: &str, t: &Transcript, strict: bool) -> Value {
             }
         }
     }
-    json!({ "model": model, "messages": messages, "tools": tools(strict), "tool_choice": "auto", "max_tokens": 8192 })
+    let mut body = json!({ "model": model, "messages": messages, "max_tokens": 8192 });
+    let tools = tools(t.profile, strict);
+    if !tools.is_empty() {
+        body["tools"] = json!(tools);
+        body["tool_choice"] = json!("auto");
+    }
+    body
 }
 
 fn arguments(v: &Value) -> Value {

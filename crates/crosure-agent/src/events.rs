@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::ApprovalRequest;
+
 /// What the agent is doing, for the UI. Serialized with a `type` tag.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -43,6 +45,15 @@ pub enum AgentEvent {
     Failed { error: String },
     /// The user stopped the run.
     Stopped,
+    /// Cumulative tokens for the run so far.
+    Usage {
+        input_tokens: u64,
+        output_tokens: u64,
+    },
+    /// A tool call is waiting for the analyst (tool permission `confirm`).
+    ApprovalRequested { request: ApprovalRequest },
+    /// The analyst decided.
+    ApprovalResolved { id: String, allowed: bool },
 }
 
 /// Where events go, and whether the user asked to stop.
@@ -51,4 +62,9 @@ pub trait Sink: Send + Sync {
     fn emit(&self, event: AgentEvent);
     /// True once the user pressed stop.
     fn should_stop(&self) -> bool;
+    /// Blocks until the analyst allows or denies a tool call. Sinks with no
+    /// one to ask (tests, the CLI) allow.
+    fn approve(&self, _request: &ApprovalRequest) -> bool {
+        true
+    }
 }

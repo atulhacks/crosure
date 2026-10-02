@@ -40,6 +40,7 @@ fn openai_request_maps_turns_and_results() {
                 note: Some("wrap up".into()),
             },
         ],
+        ..Default::default()
     };
     let body = openai_request("m", &t, false);
     let roles: Vec<&str> = body["messages"]

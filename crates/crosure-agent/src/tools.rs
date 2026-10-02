@@ -76,6 +76,26 @@ pub fn tool_definitions() -> Value {
     ])
 }
 
+/// The tools offered in `profile` (all of them for `Investigate`, none for `Ask`).
+///
+/// ```
+/// use crosure_agent::{tool_definitions_for, Profile};
+/// assert_eq!(tool_definitions_for(Profile::Ask).as_array().map(Vec::len), Some(0));
+/// let ro = tool_definitions_for(Profile::ReadOnly);
+/// assert!(ro.as_array().is_some_and(|t| t.iter().all(|t| t["name"] != "rename_function")));
+/// ```
+pub fn tool_definitions_for(profile: crate::Profile) -> Value {
+    Value::Array(
+        tool_definitions()
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|t| t["name"].as_str().is_some_and(|n| profile.allows(n)))
+            .cloned()
+            .collect(),
+    )
+}
+
 fn s(input: &Value, key: &str) -> Result<String, String> {
     input[key]
         .as_str()

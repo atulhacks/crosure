@@ -1,20 +1,26 @@
 use serde_json::Value;
 
+use crate::policy::{ApprovalRequest, Permission, Permissions};
 use crate::providers::Provider;
 use crate::render::render_result;
 use crate::tools::{parse_tool_call, ToolCall};
-use crate::{AgentError, AgentEvent, Block, Entry, Sink, Stop, ToolResult, Transcript};
+use crate::{AgentError, AgentEvent, Block, Entry, Profile, Sink, Stop, ToolResult, Transcript};
 
-/// Limits for one run.
+/// Limits and permissions for one run.
 #[derive(Clone, Debug)]
 pub struct AgentConfig {
     /// Model turns before the agent is told to wrap up.
     pub max_turns: u32,
+    /// Allow / confirm / deny per tool.
+    pub permissions: Permissions,
 }
 
 impl Default for AgentConfig {
     fn default() -> Self {
-        Self { max_turns: 40 }
+        Self {
+            max_turns: 40,
+            permissions: Permissions::default(),
+        }
     }
 }
 
@@ -41,15 +47,28 @@ pub trait Executor: Send + Sync {
 
 const WRAP_UP: &str = "Step limit reached. Call record_verdict if you have not, then write the final report without further analysis.";
 
-/// Runs the agent until it writes a final report, is stopped, or fails.
-///
-/// `chain` is the active provider followed by fallbacks: if a model declines,
-/// the same conversation continues on the next one (the switch is reported).
-/// Every tool call goes through `exec`, so it is recorded on the graph.
+/// Runs a fresh conversation. See [`run_agent_turn`].
 pub fn run_agent(
     chain: &[Box<dyn Provider>],
     exec: &dyn Executor,
     sink: &dyn Sink,
+    prompt: &str,
+    cfg: &AgentConfig,
+) -> Result<String, AgentError> {
+    run_agent_turn(chain, exec, sink, &mut Transcript::default(), prompt, cfg)
+}
+
+/// Adds `prompt` to a thread and runs until the model answers, is stopped,
+/// or fails. Follow-ups keep the whole conversation (the thread).
+///
+/// `chain` is the active provider followed by fallbacks: if a model declines,
+/// the same conversation continues on the next one (the switch is reported).
+/// Every tool call goes through `exec`, so it is recorded on the graph.
+pub fn run_agent_turn(
+    chain: &[Box<dyn Provider>],
+    exec: &dyn Executor,
+    sink: &dyn Sink,
+    t: &mut Transcript,
     prompt: &str,
     cfg: &AgentConfig,
 ) -> Result<String, AgentError> {
@@ -62,9 +81,11 @@ pub fn run_agent(
         model: first.model().into(),
         provider: first.id().into(),
     });
-    let mut t = Transcript {
-        entries: vec![Entry::User(format!("{}\n\nTask: {prompt}", exec.context()))],
-    };
+    if t.entries.is_empty() {
+        t.push_user(&format!("{}\n\nTask: {prompt}", exec.context()));
+    } else {
+        t.push_user(prompt);
+    }
     let (mut input, mut output, mut tool_calls) = (0u64, 0u64, 0u32);
 
     for turn_no in 1..=cfg.max_turns + 3 {
@@ -73,7 +94,7 @@ pub fn run_agent(
             return Ok(String::new());
         }
         let provider = &chain[cur];
-        let turn = match provider.next(&t) {
+        let turn = match provider.next(t) {
             Ok(r) => r,
             Err(e) => {
                 sink.emit(AgentEvent::Failed {
@@ -84,6 +105,10 @@ pub fn run_agent(
         };
         input += turn.input_tokens;
         output += turn.output_tokens;
+        sink.emit(AgentEvent::Usage {
+            input_tokens: input,
+            output_tokens: output,
+        });
 
         if let Stop::Refusal {
             category,
@@ -132,11 +157,17 @@ pub fn run_agent(
                 if !text.is_empty() {
                     sink.emit(AgentEvent::Message { text });
                 }
-                let tag = provider.tag();
+                let ctx = CallCtx {
+                    exec,
+                    sink,
+                    by: provider.tag(),
+                    profile: t.profile,
+                    permissions: &cfg.permissions,
+                };
                 let results = tool_uses
                     .into_iter()
                     .map(|(id, name, args)| {
-                        let (content, is_error) = run_one(exec, sink, &name, &args, &tag);
+                        let (content, is_error) = run_one(&ctx, &id, &name, &args);
                         tool_calls += 1;
                         ToolResult {
                             id,
@@ -175,30 +206,95 @@ pub fn run_agent(
     Err(e)
 }
 
-fn run_one(
-    exec: &dyn Executor,
-    sink: &dyn Sink,
+struct CallCtx<'a> {
+    exec: &'a dyn Executor,
+    sink: &'a dyn Sink,
+    by: String,
+    profile: Profile,
+    permissions: &'a Permissions,
+}
+
+fn failed(
+    ctx: &CallCtx<'_>,
     name: &str,
-    input: &Value,
-    by: &str,
+    command: String,
+    why: String,
+    error: String,
 ) -> (String, bool) {
+    ctx.sink.emit(AgentEvent::ToolCall {
+        tool: name.into(),
+        command,
+        why,
+        step_id: None,
+        summary: None,
+        error: Some(error.clone()),
+    });
+    (format!("Error: {error}"), true)
+}
+
+fn run_one(ctx: &CallCtx<'_>, id: &str, name: &str, input: &Value) -> (String, bool) {
+    if !ctx.profile.allows(name) {
+        return failed(
+            ctx,
+            name,
+            name.into(),
+            String::new(),
+            format!("`{name}` is not available in this profile"),
+        );
+    }
     let call = match parse_tool_call(name, input) {
         Ok(c) => c,
         Err(e) => {
-            sink.emit(AgentEvent::ToolCall {
-                tool: name.into(),
-                command: name.into(),
-                why: String::new(),
-                step_id: None,
-                summary: None,
-                error: Some(e.clone()),
-            });
-            return (format!("Invalid input: {e}"), true);
+            return failed(
+                ctx,
+                name,
+                name.into(),
+                String::new(),
+                format!("invalid input: {e}"),
+            )
         }
     };
-    match exec.execute(&call, by) {
+    let command = call.op.command();
+    match ctx.permissions.get(name) {
+        Permission::Allow => {}
+        Permission::Deny => {
+            return failed(
+                ctx,
+                name,
+                command,
+                call.why,
+                "blocked by tool permissions".into(),
+            )
+        }
+        Permission::Confirm => {
+            let request = ApprovalRequest {
+                id: id.into(),
+                tool: name.into(),
+                command: command.clone(),
+                why: call.why.clone(),
+            };
+            ctx.sink.emit(AgentEvent::ApprovalRequested {
+                request: request.clone(),
+            });
+            let allowed = ctx.sink.approve(&request);
+            ctx.sink.emit(AgentEvent::ApprovalResolved {
+                id: id.into(),
+                allowed,
+            });
+            if !allowed {
+                return failed(
+                    ctx,
+                    name,
+                    command,
+                    call.why,
+                    "the analyst declined this action".into(),
+                );
+            }
+        }
+    }
+    match ctx.exec.execute(&call, &ctx.by) {
         Ok(done) => {
-            sink.emit(AgentEvent::ToolCall {
+            ctx.sink.emit(AgentEvent::ToolCall {
                 tool: name.into(),
                 command: done.command.clone(),
                 why: call.why.clone(),
@@ -211,16 +307,6 @@ fn run_one(
                 false,
             )
         }
-        Err(e) => {
-            sink.emit(AgentEvent::ToolCall {
-                tool: name.into(),
-                command: call.op.command(),
-                why: call.why,
-                step_id: None,
-                summary: None,
-                error: Some(e.clone()),
-            });
-            (format!("Error: {e}"), true)
-        }
+        Err(e) => failed(ctx, name, command, call.why, e),
     }
 }

@@ -14,21 +14,23 @@ mod agent;
 mod error;
 mod events;
 mod executor;
+mod policy;
 mod prompt;
 mod providers;
 mod render;
 mod tools;
 mod transcript;
 
-pub use agent::{run_agent, AgentConfig, Executed, Executor};
+pub use agent::{run_agent, run_agent_turn, AgentConfig, Executed, Executor};
 pub use error::AgentError;
 pub use events::{AgentEvent, Sink};
 pub use executor::SessionExecutor;
+pub use policy::{ApprovalRequest, Permission, Permissions, Profile, WRITE_TOOLS};
 pub use providers::{
     anthropic_request, build_chain, build_provider, list_models, openai_request, presets,
     AgentSettings, AnthropicProvider, KeySource, OpenAiProvider, Provider, ProviderConfig,
     ProviderKind, ProviderView, ScriptedProvider, DEFAULT_MODEL,
 };
 pub use render::render_result;
-pub use tools::{parse_tool_call, tool_definitions, ToolCall};
+pub use tools::{parse_tool_call, tool_definitions, tool_definitions_for, ToolCall};
 pub use transcript::{Block, Entry, Stop, ToolResult, Transcript, Turn};
