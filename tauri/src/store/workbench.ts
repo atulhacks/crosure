@@ -31,7 +31,9 @@ interface WorkbenchState {
   opened: Opened | null;
   sessions: Session[];
   functions: FunctionInfo[];
-  view: View | null;
+  /** Latest result per tab. */
+  views: Partial<Record<ViewKind, View>>;
+  activeTab: ViewKind;
   graph: InvestigationGraph | null;
   selected: string | null;
   branchFrom: string | null;
@@ -55,6 +57,8 @@ interface WorkbenchState {
   verify: () => Promise<void>;
   exportSession: () => Promise<string | null>;
   clearError: () => void;
+  /** Switches tab; opening Strings/Imports/Info the first time runs (and records) it. */
+  openTab: (kind: ViewKind) => Promise<void>;
 }
 
 const VIEW_OF: Partial<Record<StepKind, ViewKind>> = {
@@ -93,7 +97,8 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
     set({
       opened,
       functions: opened.functions,
-      view: null,
+      views: {},
+      activeTab: "info",
       selected: null,
       branchFrom: null,
       upto: null,
@@ -101,18 +106,22 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
       consoleLog: [],
     });
     await get().refreshGraph();
+    const load = get().graph?.nodes[0];
+    if (load) set({ views: { info: { kind: "info", stepId: load.id, result: opened.info } } });
     await get().verify();
   }
 
   function parentFor(fromView: boolean) {
-    const { branchFrom, graph, view } = get();
+    const { branchFrom, graph, views, activeTab } = get();
+    const view = views[activeTab];
     const head = graph?.nodes.at(-1)?.id ?? null;
     return nextParent({ branchFrom, headId: head, viewStepId: view?.stepId ?? null, fromView });
   }
 
   async function recorded(outcome: Outcome) {
     const view = viewFor(outcome);
-    set({ branchFrom: null, selected: outcome.step.id, upto: null, ...(view ? { view } : {}) });
+    set({ branchFrom: null, selected: outcome.step.id, upto: null });
+    if (view) set({ views: { ...get().views, [view.kind]: view }, activeTab: view.kind });
     if (outcome.step.kind === "rename") set({ functions: await api.functions() });
     await get().refreshGraph();
     await get().verify();
@@ -122,7 +131,8 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
     opened: null,
     sessions: [],
     functions: [],
-    view: null,
+    views: {},
+    activeTab: "info",
     graph: null,
     selected: null,
     branchFrom: null,
@@ -145,7 +155,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
       const opened = await guarded(() => api.resumeSession(id));
       if (opened) await afterOpen(opened);
     },
-    close: () => set({ opened: null, graph: null, view: null, selected: null }),
+    close: () => set({ opened: null, graph: null, views: {}, selected: null }),
 
     act: async (op, opts = {}) => {
       const parent = opts.parent ?? parentFor(opts.fromView ?? false);
@@ -177,7 +187,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
       set({ selected: id, branchFrom: id === head ? null : id });
       const outcome = await guarded(() => api.stepOutcome(id));
       const view = outcome && viewFor(outcome);
-      if (view) set({ view });
+      if (view) set({ views: { ...get().views, [view.kind]: view }, activeTab: view.kind });
     },
     annotate: async (stepId, chip, tags) => {
       const ok = await guarded(() => api.annotate(stepId, chip, null, tags));
@@ -202,5 +212,12 @@ export const useWorkbench = create<WorkbenchState>((set, get) => {
     },
     exportSession: () => guarded(api.exportSession),
     clearError: () => set({ error: null }),
+    openTab: async (kind) => {
+      set({ activeTab: kind });
+      if (get().views[kind]) return;
+      if (kind === "strings") await get().act({ op: "strings", filter: null, min_len: null });
+      if (kind === "imports") await get().act({ op: "imports" });
+      if (kind === "info") await get().act({ op: "info" });
+    },
   };
 });

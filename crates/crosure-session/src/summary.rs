@@ -66,8 +66,9 @@ pub(crate) fn xrefs(what: &str, refs: &[Xref]) -> String {
             .collect(),
     );
     format!(
-        "{} refs to {what} ({} call, {} jump, {} data) from {}",
+        "{} {} to {what} ({} call, {} jump, {} data) from {}",
         refs.len(),
+        if refs.len() == 1 { "ref" } else { "refs" },
         count(XrefKind::Call),
         count(XrefKind::Jump),
         count(XrefKind::Data),

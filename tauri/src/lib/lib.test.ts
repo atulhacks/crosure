@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { duration, hex, shortHash } from "./format";
+import { clock, duration, hex, shortHash } from "./format";
+import { fuzzyFilter, fuzzyScore } from "./fuzzy";
+import { clampPane, loadPanes, PANE_DEFAULTS } from "./panes";
+import { layoutCfg } from "./cfgLayout";
 import { hexRows } from "./hexdump";
 import { layoutGraph } from "./layout";
 import { nextParent } from "./parent";
@@ -29,6 +32,7 @@ describe("format", () => {
     expect(duration(400)).toBe("400ms");
     expect(duration(65_000)).toBe("1m 5s");
     expect(shortHash("sha256:abcdef0123456789", 6)).toBe("abcdef");
+    expect(clock(65_000)).toBe("1:05");
   });
 });
 
@@ -68,7 +72,61 @@ describe("layoutGraph", () => {
     );
     expect(out.nodes[1].position.y).toBeGreaterThan(out.nodes[0].position.y);
     expect(out.nodes[1].data.selected).toBe(true);
-    expect(out.edges[0].style?.stroke).toBe("#f43f5e");
-    expect(out.edges[1].animated).toBe(true);
+    expect(out.edges[0].style?.stroke).toBe("var(--brand)");
+    expect(out.edges[1].style?.strokeDasharray).toBe("5 4");
+    expect(out.edges[1].label).toBe("branch");
+  });
+});
+
+describe("fuzzy", () => {
+  it("prefers word starts and consecutive hits", () => {
+    expect(fuzzyScore("zz", "main")).toBeNull();
+    const ranked = fuzzyFilter("chk", ["cache_lookup_key", "check_password", "main"], (s) => s);
+    expect(ranked[0]).toBe("check_password");
+    expect(ranked).not.toContain("main");
+  });
+});
+
+describe("panes", () => {
+  it("clamps and falls back to defaults", () => {
+    expect(clampPane("left", 10)).toBe(180);
+    expect(clampPane("right", 9999)).toBe(760);
+    localStorage.setItem("crosure.panes", "{not json");
+    expect(loadPanes()).toEqual(PANE_DEFAULTS);
+    localStorage.setItem("crosure.panes", JSON.stringify({ left: 300 }));
+    expect(loadPanes().left).toBe(300);
+  });
+});
+
+describe("layoutCfg", () => {
+  it("colours edges by kind and slices instructions per block", () => {
+    const insn = (addr: number) => ({
+      addr,
+      bytes: "90",
+      mnemonic: "nop",
+      operands: "",
+      target: null,
+      comment: null,
+    });
+    const out = layoutCfg(
+      [
+        {
+          addr: 0,
+          end: 2,
+          first: 0,
+          count: 2,
+          succs: [
+            { to: 2, kind: "taken" },
+            { to: 3, kind: "fall" },
+          ],
+        },
+        { addr: 2, end: 3, first: 2, count: 1, succs: [] },
+        { addr: 3, end: 4, first: 3, count: 1, succs: [] },
+      ],
+      [insn(0), insn(1), insn(2), insn(3)],
+    );
+    expect(out.nodes[0].data.insns).toHaveLength(2);
+    expect(out.nodes[0].data.entry).toBe(true);
+    expect(out.edges.map((e) => e.style?.stroke)).toEqual(["var(--good)", "var(--bad)"]);
   });
 });

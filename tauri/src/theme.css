@@ -1,0 +1,93 @@
+/*
+ * Crosure themes. Every colour lives here, one block per palette; geometry
+ * lives in index.css. Colour carries meaning only:
+ *   brand (recorder amber)  recording, the key path, focus
+ *   good / bad              chain verified / tampered, taken / not-taken
+ *   asm-*                   the disassembly palette, desaturated for long reading
+ *   kind-*                  one dot colour per step kind on the investigation graph
+ */
+
+:root,
+[data-theme="crosure-dark"] {
+  color-scheme: dark;
+  --background: #08090c;
+  --panel: #0c0e12;
+  --elevated: #12151b;
+  --hover: rgba(255, 255, 255, 0.045);
+  --active: rgba(255, 255, 255, 0.075);
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --foreground: #e6e9ef;
+  --muted: #8b95a5;
+  --faint: #5a6371;
+  --brand: #f0a35e;
+  --brand-soft: rgba(240, 163, 94, 0.13);
+  --good: #7fcf9f;
+  --bad: #f07a6a;
+  --warn: #e5c07b;
+  --selection: rgba(240, 163, 94, 0.18);
+
+  --asm-addr: #6c7686;
+  --asm-bytes: #475060;
+  --asm-mnemonic: #86b3e0;
+  --asm-call: #c6a6e6;
+  --asm-jump: #e0b07a;
+  --asm-operand: #cfd8e3;
+  --asm-string: #d9be86;
+  --asm-symbol: #8fd0b8;
+
+  --edge: #3a414d;
+  --edge-strong: #6c7686;
+
+  --kind-neutral: #6c7686;
+  --kind-code: #86b3e0;
+  --kind-xref: #c6a6e6;
+  --kind-data: #d9be86;
+  --kind-import: #e09a76;
+  --kind-edit: #8fd0b8;
+  --kind-hypothesis: #e5c07b;
+  --kind-finding: #f07a6a;
+  --kind-agent: #d89be0;
+}
+
+[data-theme="crosure-light"] {
+  color-scheme: light;
+  --background: #f6f7f9;
+  --panel: #ffffff;
+  --elevated: #ffffff;
+  --hover: rgba(0, 0, 0, 0.04);
+  --active: rgba(0, 0, 0, 0.07);
+  --border: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --foreground: #12151b;
+  --muted: #5d6675;
+  --faint: #8d96a3;
+  --brand: #c4661a;
+  --brand-soft: rgba(196, 102, 26, 0.1);
+  --good: #1f8a54;
+  --bad: #c2412f;
+  --warn: #9a6a00;
+  --selection: rgba(196, 102, 26, 0.14);
+
+  --asm-addr: #7a8492;
+  --asm-bytes: #a3abb6;
+  --asm-mnemonic: #1f62a8;
+  --asm-call: #7a3fb0;
+  --asm-jump: #a35a10;
+  --asm-operand: #1d2430;
+  --asm-string: #8a5a00;
+  --asm-symbol: #13795b;
+
+  --edge: #c3c9d2;
+  --edge-strong: #7a8492;
+
+  --kind-neutral: #8d96a3;
+  --kind-code: #1f62a8;
+  --kind-xref: #7a3fb0;
+  --kind-data: #8a5a00;
+  --kind-import: #b0541e;
+  --kind-edit: #13795b;
+  --kind-hypothesis: #9a6a00;
+  --kind-finding: #c2412f;
+  --kind-agent: #9d3fb0;
+}

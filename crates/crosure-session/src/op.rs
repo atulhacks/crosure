@@ -78,6 +78,26 @@ impl Op {
         }
     }
 
+    /// The same op aimed at `target` (ops without a target are returned as-is).
+    ///
+    /// ```
+    /// use crosure_session::Op;
+    /// let op = Op::Disasm { target: "0x1189".into() }.with_target("decode");
+    /// assert_eq!(op.command(), "dis decode");
+    /// ```
+    pub fn with_target(&self, target: &str) -> Op {
+        let t = target.to_string();
+        match self.clone() {
+            Op::Disasm { .. } => Op::Disasm { target: t },
+            Op::XrefsTo { .. } => Op::XrefsTo { target: t },
+            Op::XrefsFrom { .. } => Op::XrefsFrom { target: t },
+            Op::Hex { len, .. } => Op::Hex { target: t, len },
+            Op::Rename { name, .. } => Op::Rename { target: t, name },
+            Op::Comment { text, .. } => Op::Comment { target: t, text },
+            other => other,
+        }
+    }
+
     /// The canonical console form of the op, stored as the step's command
     /// whatever the origin, so datasets see one action vocabulary.
     ///

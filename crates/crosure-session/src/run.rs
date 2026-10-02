@@ -36,6 +36,15 @@ impl Workspace {
         origin: Origin,
     ) -> Result<Outcome, SessionError> {
         let done = self.execute(&op)?;
+        let op = match (done.addr, &op) {
+            // A rename is recorded against the name the function had before it.
+            (Some(a), Op::Rename { .. }) => match done.result["old"].as_str() {
+                Some(old) if !old.contains(['+', ' ', '"']) => op.with_target(old),
+                _ => op.with_target(&format!("{a:#x}")),
+            },
+            (Some(a), _) => op.with_target(&self.canonical_target(a)),
+            (None, _) => op,
+        };
         let mut action = serde_json::to_value(&op)?;
         if let (Value::Object(map), Some(a)) = (&mut action, done.addr) {
             map.insert("addr".into(), json!(a));
@@ -121,7 +130,9 @@ impl Workspace {
             Op::XrefsTo { target } => {
                 let addr = self.resolve(target)?;
                 let refs = self.rename_refs(self.engine.xrefs_to(addr)?);
-                let what = self.name_of(addr).unwrap_or_else(|| target.clone());
+                let what = self
+                    .display_name(addr)
+                    .unwrap_or_else(|| format!("{addr:#x}"));
                 Done {
                     summary: summary::xrefs(&what, &refs),
                     result: json!({ "addr": addr, "name": what, "refs": refs }),

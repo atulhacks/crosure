@@ -1,25 +1,30 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { GraphEdge, GraphNode } from "../types";
-
 import { NODE_SIZE } from "./format";
 
-const NODE_W = NODE_SIZE.w;
-const NODE_H = NODE_SIZE.h + 14;
+/** Data carried by an investigation-graph node. */
+export interface StepData extends Record<string, unknown> {
+  node: GraphNode;
+  selected: boolean;
+  branchFrom: boolean;
+}
 
 /**
- * Lays the investigation graph out top-to-bottom with dagre and returns
- * React Flow nodes/edges. Branch edges are dashed; key-path edges glow.
+ * Lays the investigation graph out top-to-bottom with dagre. The key path
+ * (steps that led to a finding) is drawn in the brand colour; branches are
+ * dashed; everything else stays quiet.
  */
 export function layoutGraph(
   nodes: GraphNode[],
   edges: GraphEdge[],
   selected: string | null,
-): { nodes: Node<{ node: GraphNode; selected: boolean }>[]; edges: Edge[] } {
+  branchFrom: string | null = null,
+): { nodes: Node<StepData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", nodesep: 28, ranksep: 36 });
+  g.setGraph({ rankdir: "TB", nodesep: 24, ranksep: 30 });
   g.setDefaultEdgeLabel(() => ({}));
-  for (const n of nodes) g.setNode(n.id, { width: NODE_W, height: NODE_H });
+  for (const n of nodes) g.setNode(n.id, { width: NODE_SIZE.w, height: NODE_SIZE.h });
   for (const e of edges) g.setEdge(e.from, e.to);
   dagre.layout(g);
   const keyIds = new Set(nodes.filter((n) => n.on_key_path).map((n) => n.id));
@@ -29,25 +34,27 @@ export function layoutGraph(
       return {
         id: n.id,
         type: "step",
-        position: { x: (p?.x ?? 0) - NODE_W / 2, y: (p?.y ?? 0) - NODE_H / 2 },
-        data: { node: n, selected: n.id === selected },
+        position: { x: (p?.x ?? 0) - NODE_SIZE.w / 2, y: (p?.y ?? 0) - NODE_SIZE.h / 2 },
+        data: { node: n, selected: n.id === selected, branchFrom: n.id === branchFrom },
       };
     }),
     edges: edges.map((e) => {
       const key = keyIds.has(e.from) && keyIds.has(e.to);
+      const branch = e.rel === "branch";
       return {
         id: `${e.from}-${e.to}`,
         source: e.from,
         target: e.to,
-        animated: e.rel === "branch",
-        label: e.rel === "next" ? undefined : e.rel.replace("_", " "),
+        type: "smoothstep",
+        animated: false,
+        label: branch ? "branch" : undefined,
         style: {
-          stroke: key ? "#f43f5e" : e.rel === "derived_from" ? "#a78bfa" : "#475569",
-          strokeWidth: key ? 2.5 : 1.5,
-          strokeDasharray: e.rel === "branch" ? "6 4" : undefined,
+          stroke: key ? "var(--brand)" : e.rel === "next" ? "var(--edge)" : "var(--edge-strong)",
+          strokeWidth: key ? 2 : 1.25,
+          strokeDasharray: branch ? "5 4" : undefined,
         },
-        labelStyle: { fill: "#94a3b8", fontSize: 10 },
-        labelBgStyle: { fill: "#0f172a" },
+        labelStyle: { fill: "var(--muted)", fontSize: 10 },
+        labelBgPadding: [4, 2] as [number, number],
       };
     }),
   };
