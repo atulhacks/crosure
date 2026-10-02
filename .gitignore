@@ -1,0 +1,12 @@
+/target
+node_modules/
+/tauri/dist/
+/tauri/src-tauri/gen/
+*.db
+*.db-journal
+.env
+__pycache__/
+.venv/
+# never commit samples other than benign fixtures
+/samples/*
+!/samples/README.md
