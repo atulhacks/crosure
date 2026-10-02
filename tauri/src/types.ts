@@ -239,10 +239,34 @@ export interface ProviderView extends ProviderConfig {
   ready: boolean;
 }
 
+export type Profile = "investigate" | "read_only" | "ask";
+export type Permission = "allow" | "confirm" | "deny";
+
 export interface AgentSettings {
   providers: ProviderConfig[];
   active: string;
   auto_fallback: boolean;
+  instructions: string;
+  permissions: Record<string, Permission>;
+  default_profile: Profile;
+}
+
+export interface ThreadSummary {
+  id: string;
+  title: string;
+  created_ms: number;
+  profile: Profile;
+  tool_calls: number;
+}
+export interface ThreadList {
+  threads: ThreadSummary[];
+  current: string | null;
+}
+export interface ApprovalRequest {
+  id: string;
+  tool: string;
+  command: string;
+  why: string;
 }
 
 export interface SettingsView {
@@ -250,6 +274,9 @@ export interface SettingsView {
   active: string;
   auto_fallback: boolean;
   presets: ProviderConfig[];
+  instructions: string;
+  permissions: Record<string, Permission>;
+  default_profile: Profile;
 }
 
 export type AgentEvent =
@@ -276,7 +303,10 @@ export type AgentEvent =
       output_tokens: number;
     }
   | { type: "failed"; error: string }
-  | { type: "stopped" };
+  | { type: "stopped" }
+  | { type: "usage"; input_tokens: number; output_tokens: number }
+  | { type: "approval_requested"; request: ApprovalRequest }
+  | { type: "approval_resolved"; id: string; allowed: boolean };
 
 export interface AgentEventPage {
   events: AgentEvent[];

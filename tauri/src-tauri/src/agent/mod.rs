@@ -1,17 +1,24 @@
-//! Agent runtime for the app: provider settings, the background run, and the
-//! event log the UI polls.
+//! Agent runtime for the app: provider settings, threads, the background
+//! run, approvals, and the event log the UI polls.
+
+mod approval;
+mod mention;
+mod run;
+mod threads;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use crosure_agent::{
-    build_chain, list_models, presets, run_agent, AgentConfig, AgentEvent, AgentSettings,
-    KeySource, Provider, ProviderConfig, ProviderView, ScriptedProvider, SessionExecutor, Sink,
+    build_chain, list_models, presets, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
+    Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
 };
 use serde::Serialize;
 
-use crate::AppState;
+pub use run::start;
+use threads::ThreadStore;
+pub use threads::ThreadSummary;
 
 /// What the agent dock shows (never a key).
 #[derive(Serialize)]
@@ -36,6 +43,9 @@ pub struct SettingsView {
     pub auto_fallback: bool,
     /// Templates for "Add provider" (no keys).
     pub presets: Vec<ProviderConfig>,
+    pub instructions: String,
+    pub permissions: crosure_agent::Permissions,
+    pub default_profile: crosure_agent::Profile,
 }
 
 /// A page of events since a cursor.
@@ -46,13 +56,23 @@ pub struct EventPage {
     pub running: bool,
 }
 
-/// Settings, run state and the event log for the current run.
+/// Threads of the open session and which one is shown.
+#[derive(Serialize)]
+pub struct ThreadList {
+    pub threads: Vec<ThreadSummary>,
+    pub current: Option<String>,
+}
+
+/// Settings, threads, run state and the live event log.
 pub struct AgentRuntime {
     path: PathBuf,
     settings: Mutex<AgentSettings>,
+    threads: Mutex<ThreadStore>,
+    /// Events of the thread being shown (live while it runs).
     events: Mutex<Vec<AgentEvent>>,
     running: AtomicBool,
     stop: AtomicBool,
+    gate: approval::Gate,
 }
 
 impl Sink for AgentRuntime {
@@ -64,6 +84,10 @@ impl Sink for AgentRuntime {
     fn should_stop(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
     }
+    fn approve(&self, request: &ApprovalRequest) -> bool {
+        self.gate
+            .wait(&request.id, || self.stop.load(Ordering::SeqCst))
+    }
 }
 
 fn demo_mode() -> bool {
@@ -71,7 +95,7 @@ fn demo_mode() -> bool {
 }
 
 impl AgentRuntime {
-    /// Loads `home/agent.json` (migrating the first format).
+    /// Loads `home/agent.json` (migrating the first format) and saved threads lazily.
     pub fn new(home: &Path) -> Self {
         let path = home.join("agent.json");
         let settings = std::fs::read(&path)
@@ -80,9 +104,11 @@ impl AgentRuntime {
         Self {
             path,
             settings: Mutex::new(settings),
+            threads: Mutex::new(ThreadStore::new(home)),
             events: Mutex::new(Vec::new()),
             running: AtomicBool::new(false),
             stop: AtomicBool::new(false),
+            gate: approval::Gate::default(),
         }
     }
 
@@ -135,6 +161,9 @@ impl AgentRuntime {
             active: s.active,
             auto_fallback: s.auto_fallback,
             presets: presets(),
+            instructions: s.instructions,
+            permissions: s.permissions,
+            default_profile: s.default_profile,
         }
     }
 
@@ -182,7 +211,20 @@ impl AgentRuntime {
         list_models(&cfg).map_err(|e| e.to_string())
     }
 
-    /// Events since `since`.
+    /// Makes `id` the provider runs start on.
+    pub fn set_active(&self, id: &str) -> Result<AgentStatus, String> {
+        {
+            let mut s = self.settings.lock().map_err(|_| "settings lock poisoned")?;
+            if !s.providers.iter().any(|p| p.id == id) {
+                return Err(format!("unknown provider `{id}`"));
+            }
+            s.active = id.into();
+            self.persist(&s)?;
+        }
+        Ok(self.status())
+    }
+
+    /// Events of the shown thread since `since`.
     pub fn page(&self, since: usize) -> EventPage {
         let events = self
             .events
@@ -200,9 +242,49 @@ impl AgentRuntime {
         }
     }
 
-    /// Asks the current run to stop after its in-flight call.
+    /// Asks the current run to stop after its in-flight call (a pending approval is denied).
     pub fn request_stop(&self) {
         self.stop.store(true, Ordering::SeqCst);
+    }
+
+    /// The analyst's answer to a pending tool call.
+    pub fn decide(&self, id: &str, allow: bool) -> Result<(), String> {
+        if self.gate.decide(id, allow) {
+            Ok(())
+        } else {
+            Err("nothing is waiting for that decision".into())
+        }
+    }
+
+    /// Threads of `session_id`, newest first.
+    pub fn threads(&self, session_id: &str) -> ThreadList {
+        let Ok(mut t) = self.threads.lock() else {
+            return ThreadList {
+                threads: vec![],
+                current: None,
+            };
+        };
+        let threads = t.list(session_id);
+        let current = t
+            .current
+            .clone()
+            .filter(|c| threads.iter().any(|x| &x.id == c));
+        ThreadList { threads, current }
+    }
+
+    /// Shows a saved thread (or a fresh one with `None`). Refused while a run is going.
+    pub fn open_thread(&self, session_id: &str, id: Option<&str>) -> Result<(), String> {
+        if self.running.load(Ordering::SeqCst) {
+            return Err("wait for the agent to finish (or stop it) first".into());
+        }
+        let mut store = self.threads.lock().map_err(|_| "threads lock poisoned")?;
+        let events = match id {
+            Some(id) => store.get(session_id, id).ok_or("unknown thread")?.events,
+            None => Vec::new(),
+        };
+        store.current = id.map(str::to_string);
+        *self.events.lock().map_err(|_| "events lock poisoned")? = events;
+        Ok(())
     }
 
     fn chain(&self) -> Result<Vec<Box<dyn Provider>>, String> {
@@ -212,70 +294,4 @@ impl AgentRuntime {
         build_chain(&self.snapshot())
             .map_err(|_| "No AI provider is ready. Open agent settings to add one.".to_string())
     }
-}
-
-/// Records the request, then runs the agent on a background thread.
-pub fn start(state: &AppState, prompt: String) -> Result<(), String> {
-    let rt = state.agent.clone();
-    if rt.running.swap(true, Ordering::SeqCst) {
-        return Err("the agent is already running".into());
-    }
-    let begin = || -> Result<Vec<Box<dyn Provider>>, String> {
-        let chain = rt.chain()?;
-        let store = state.store.lock().map_err(|_| "store lock poisoned")?;
-        let ws = state
-            .workspace
-            .lock()
-            .map_err(|_| "workspace lock poisoned")?;
-        ws.as_ref()
-            .ok_or("no binary is open")?
-            .record_task(&store, &prompt)
-            .map_err(|e| e.to_string())?;
-        Ok(chain)
-    };
-    let chain = match begin() {
-        Ok(c) => c,
-        Err(e) => {
-            rt.running.store(false, Ordering::SeqCst);
-            return Err(e);
-        }
-    };
-    if let Ok(mut e) = rt.events.lock() {
-        e.clear();
-    }
-    rt.stop.store(false, Ordering::SeqCst);
-    let exec = SessionExecutor {
-        store: state.store.clone(),
-        workspace: state.workspace.clone(),
-    };
-    std::thread::spawn(move || {
-        if let Ok(report) = run_agent(&chain, &exec, rt.as_ref(), &prompt, &AgentConfig::default())
-        {
-            if !report.is_empty() {
-                // Attribute the report to whichever provider finished the run.
-                let by = rt
-                    .events
-                    .lock()
-                    .ok()
-                    .and_then(|e| {
-                        e.iter().rev().find_map(|e| match e {
-                            AgentEvent::Switched { to, .. } => Some(to.clone()),
-                            _ => None,
-                        })
-                    })
-                    .unwrap_or_else(|| chain[0].tag());
-                let saved = exec.store.lock().ok().and_then(|store| {
-                    let ws = exec.workspace.lock().ok()?;
-                    ws.as_ref()?.record_report(&store, &by, &report).ok()
-                });
-                if saved.is_none() {
-                    rt.emit(AgentEvent::Failed {
-                        error: "could not record the report".into(),
-                    });
-                }
-            }
-        }
-        rt.running.store(false, Ordering::SeqCst);
-    });
-    Ok(())
 }

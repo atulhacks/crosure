@@ -8,8 +8,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useState } from "react";
+import { pendingApprovals, useAgent } from "../../store/agent";
 import { useWorkbench } from "../../store/workbench";
 import type { AgentEvent } from "../../types";
+import { splitPrompt } from "../../lib/prompt";
 import { Report } from "./Report";
 
 const TOOL_LABEL: Record<string, string> = {
@@ -74,21 +76,58 @@ function ToolCard({ e }: { e: Extract<AgentEvent, { type: "tool_call" }> }) {
   );
 }
 
+function ApprovalCard({
+  e,
+  pending,
+}: {
+  e: Extract<AgentEvent, { type: "approval_requested" }>;
+  pending: boolean;
+}) {
+  const decide = useAgent((s) => s.decide);
+  return (
+    <div className="rounded-md border border-brand/50 bg-brand-soft px-2.5 py-2">
+      <div className="text-xs text-brand">The agent wants to run</div>
+      <div className="mt-0.5 font-mono text-xs text-fg">{e.request.command}</div>
+      {e.request.why && <div className="mt-0.5 text-xs text-muted">{e.request.why}</div>}
+      {pending && (
+        <div className="mt-2 flex gap-1.5">
+          <button
+            onClick={() => decide(e.request.id, true)}
+            className="ease h-6 rounded-md bg-brand px-2.5 text-xs font-medium text-[#1a1208] hover:brightness-110"
+          >
+            Allow
+          </button>
+          <button
+            onClick={() => decide(e.request.id, false)}
+            className="ease h-6 rounded-md border px-2.5 text-xs text-muted hover:text-fg"
+          >
+            Deny
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The agent run: request, reasoning, every recorded tool call, and the report. */
 export function Transcript({ events, running }: { events: AgentEvent[]; running: boolean }) {
+  const pending = new Set(pendingApprovals(events).map((r) => r.id));
   return (
     <div className="space-y-1.5">
       {events.map((e, i) => {
         switch (e.type) {
-          case "started":
+          case "started": {
+            const p = splitPrompt(e.prompt);
             return (
               <div key={i} className="mb-2 rounded-md bg-active px-2.5 py-1.5 text-sm text-fg">
-                {e.prompt}
+                {p.text}
                 <div className="mt-0.5 font-mono text-2xs text-faint">
                   {e.provider} · {e.model}
+                  {p.attached && " · context attached"}
                 </div>
               </div>
             );
+          }
           case "thinking":
             return <Thinking key={i} text={e.text} />;
           case "message":
@@ -115,6 +154,16 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
                 </p>
               </div>
             );
+          case "approval_requested":
+            return <ApprovalCard key={i} e={e} pending={pending.has(e.request.id)} />;
+          case "approval_resolved":
+            return (
+              <div key={i} className={`text-2xs ${e.allowed ? "text-good" : "text-bad"}`}>
+                {e.allowed ? "Allowed" : "Denied"} by you
+              </div>
+            );
+          case "usage":
+            return null;
           case "switched":
             return (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted">
