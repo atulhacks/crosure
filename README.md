@@ -141,8 +141,15 @@ docs/                overview, plan, AI agent, datasets, decompiler
 ## Run it
 
 Prerequisites: Rust ≥ 1.77, Node ≥ 20, and the
-[Tauri Linux packages](https://v2.tauri.app/start/prerequisites/)
-(`libwebkit2gtk-4.1-dev` etc.). Optionally install [`just`](https://github.com/casey/just).
+[Tauri system packages](https://v2.tauri.app/start/prerequisites/). On
+Ubuntu/Debian:
+
+```bash
+sudo apt install libdbus-1-dev pkg-config libwebkit2gtk-4.1-dev build-essential \
+  curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
+```
+
+ Optionally install [`just`](https://github.com/casey/just).
 
 ```bash
 just dev        # desktop app (cd tauri && npm install && npm run tauri dev)
