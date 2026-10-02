@@ -1,0 +1,20 @@
+[package]
+name = "crosure-mcp"
+description = "Crosure MCP server: any MCP client (Claude Code, Zed, Cursor, ...) drives Crosure's analysis tools over stdio, and every call is recorded on the investigation graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "crosure-mcp"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+crosure-agent.workspace = true
+crosure-recorder.workspace = true
+crosure-session.workspace = true
+
+[lints]
+workspace = true

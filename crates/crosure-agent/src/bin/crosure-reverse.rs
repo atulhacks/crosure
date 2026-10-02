@@ -64,6 +64,9 @@ impl Sink for Print {
             }
             AgentEvent::Failed { error } => eprintln!("! {error}"),
             AgentEvent::Stopped => eprintln!("· stopped"),
+            AgentEvent::Usage { .. }
+            | AgentEvent::ApprovalRequested { .. }
+            | AgentEvent::ApprovalResolved { .. } => {}
         }
     }
     fn should_stop(&self) -> bool {

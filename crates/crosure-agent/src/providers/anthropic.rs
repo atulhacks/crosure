@@ -2,8 +2,7 @@ use serde_json::{json, Value};
 
 use super::http::Http;
 use super::Provider;
-use crate::prompt::SYSTEM_PROMPT;
-use crate::tools::tool_definitions;
+use crate::tools::tool_definitions_for;
 use crate::{AgentError, Block, Entry, Stop, Transcript, Turn};
 
 /// The default Claude model.
@@ -32,7 +31,7 @@ fn assistant_blocks(blocks: &[Block]) -> Vec<Value> {
 ///
 /// ```
 /// use crosure_agent::{anthropic_request, Entry, Transcript};
-/// let t = Transcript { entries: vec![Entry::User("hi".into())] };
+/// let t = Transcript { entries: vec![Entry::User("hi".into())], ..Default::default() };
 /// let body = anthropic_request("anthropic", "claude-opus-5-5", &t);
 /// assert_eq!(body["fallbacks"], "default");
 /// assert_eq!(body["output_config"]["effort"], "high");
@@ -59,18 +58,22 @@ pub fn anthropic_request(self_id: &str, model: &str, t: &Transcript) -> Value {
             }
         })
         .collect();
-    json!({
+    let mut body = json!({
         "model": model,
         "max_tokens": 16000,
-        "system": SYSTEM_PROMPT,
-        "tools": tool_definitions(),
-        "tool_choice": { "type": "auto" },
+        "system": t.system_prompt(),
         "thinking": { "type": "adaptive", "display": "summarized" },
         "output_config": { "effort": "high" },
         "fallbacks": "default",
         "cache_control": { "type": "ephemeral" },
         "messages": messages,
-    })
+    });
+    let tools = tool_definitions_for(t.profile);
+    if tools.as_array().is_some_and(|a| !a.is_empty()) {
+        body["tools"] = tools;
+        body["tool_choice"] = json!({ "type": "auto" });
+    }
+    body
 }
 
 /// Parses a Messages API response.

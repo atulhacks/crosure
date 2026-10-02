@@ -543,6 +543,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crosure-mcp"
+version = "0.1.0"
+dependencies = [
+ "crosure-agent",
+ "crosure-recorder",
+ "crosure-session",
+ "serde_json",
+]
+
+[[package]]
 name = "crosure-recorder"
 version = "0.1.0"
 dependencies = [

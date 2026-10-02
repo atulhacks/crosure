@@ -220,6 +220,15 @@ pub struct AgentSettings {
     /// When a model declines, continue the same run on the next ready provider.
     #[serde(default = "yes")]
     pub auto_fallback: bool,
+    /// Analyst instructions appended to the system prompt of every thread.
+    #[serde(default)]
+    pub instructions: String,
+    /// Allow / confirm / deny per tool.
+    #[serde(default)]
+    pub permissions: crate::Permissions,
+    /// Profile new threads start with.
+    #[serde(default)]
+    pub default_profile: crate::Profile,
 }
 
 impl Default for AgentSettings {
@@ -228,6 +237,9 @@ impl Default for AgentSettings {
             providers: presets().into_iter().take(1).collect(),
             active: "anthropic".into(),
             auto_fallback: true,
+            instructions: String::new(),
+            permissions: crate::Permissions::default(),
+            default_profile: crate::Profile::default(),
         }
     }
 }
@@ -294,6 +306,9 @@ impl AgentSettings {
             .collect();
         self.active = incoming.active;
         self.auto_fallback = incoming.auto_fallback;
+        self.instructions = incoming.instructions;
+        self.permissions = incoming.permissions;
+        self.default_profile = incoming.default_profile;
     }
 }
 

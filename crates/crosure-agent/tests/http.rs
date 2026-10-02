@@ -43,6 +43,7 @@ fn serve_once(reply: Value) -> (String, mpsc::Receiver<(String, Value)>) {
 fn transcript() -> Transcript {
     Transcript {
         entries: vec![Entry::User("Reverse it.".into())],
+        ..Default::default()
     }
 }
 
