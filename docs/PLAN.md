@@ -37,7 +37,8 @@ from how experts reverse.
 
 > Licensing: Recurse is Apache-2.0, so reuse is legal if we keep its
 > `LICENSE`/`NOTICE`. Check Innoventure's originality rules. This plan
-> assumes our own code on top of mature open-source engines (rizin, LIEF, capstone).
+> assumes our own code, in the same stack (Rust + TypeScript + Python),
+> on top of mature open-source pieces (capstone, object, rizin).
 
 ---
 
@@ -222,52 +223,113 @@ uploads), and a dataset card with each export.
 
 ---
 
-## 6. Architecture
+## 6. Architecture (same stack as Recurse: Rust + TypeScript + Python)
+
+We use the same family of technologies as Recurse: a **Tauri 2** desktop app
+with a **React + TypeScript** frontend, a **Rust** Cargo workspace for
+everything performance- or integrity-critical, and **Python** where its
+ecosystem wins (ML training, plugins for Python-scriptable RE tools, voice).
 
 ```
-┌──────────────────────────── Frontend (React + TS + Vite) ────────────────────────────┐
-│ Workbench │ Console │ Investigation Canvas │ Timeline │ Heatmap │ Learn │ Dataset │ Hub │
-└───────────────┬──────────────────────── REST + WebSocket ─────────────────────────────┘
-                │
-┌───────────────▼────────────────── Backend: Python (FastAPI) ──────────────────────────┐
-│ api/        REST + WS (live node push)                                                 │
-│ engine/     rizin (rzpipe) + LIEF + capstone adapter                                   │
-│ recorder/   record(step) → validate → hash-chain → store → broadcast                  │
-│ graph/      edges, hypotheses, replay, diff, merge, verify chain                       │
-│ insight/    attention heatmap, function fingerprints, cross-sample memory, playbooks   │
-│ copilot/    embeddings + retrieval, LLM agent, report generator                        │
-│ learn/      challenges, graph-vs-expert scoring, hints                                 │
-│ dataset/    exporters (SFT, DPO, trajectories, graph), dataset cards                   │
-│ ingest/     WebSocket endpoint for Ghidra / x64dbg / IDA / gdb / sandbox plugins       │
-└───────────────┬────────────────────────────────────────────────────────────────────────┘
-                │
-   SQLite (sessions, steps, edges, labels, fingerprints, FTS5) + blob store (by sha256)
-   Optional: local LLM (Ollama) · Whisper (voice) · sandbox VM (dynamic, isolated)
+┌──────────────────── Tauri 2 desktop app ─ frontend: React 19 + TypeScript ────────────────────┐
+│ Workbench │ Console │ Investigation Canvas │ Timeline │ Heatmap │ Learn │ Dataset │ Hub          │
+└────────────────┬──────────── Tauri commands (invoke) + events ("step-recorded") ──────────────┘
+                 │
+┌────────────────▼──────────── tauri/src-tauri (Rust app glue) ─────────────────────────────────┐
+│ commands.rs · sessions.rs · events.rs: thin layer that calls the crates below                  │
+└───┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬────────────────┘
+    │              │              │              │              │              │
+ crosure-       crosure-       crosure-       crosure-       crosure-       crosure-
+ engine         recorder       graph          insight        copilot        learn / dataset
+ (analysis)     (steps, hash   (edges,        (fingerprints, (LLM, RAG,     (scoring,
+                chain, store)  replay, diff)  heatmap, play- agent, report) exporters)
+                                              books)
+    │                                                                           │
+ crosure-ingest: local WebSocket (127.0.0.1:7878) ◄── Ghidra / x64dbg / IDA / gdb / sandbox plugins
+ crosure-py:     pyo3 bindings ──► python/crosure_ml (training, eval, CrosureBench), voice sidecar
+                 │
+   SQLite (rusqlite, bundled, FTS5) + content-addressed blob store (sha256)   ~/.crosure/
 ```
+
+### Rust crates (Cargo workspace)
+
+| Crate | Job | Key dependencies |
+| --- | --- | --- |
+| `crosure-engine` | `Engine` trait + backends. **native** (ELF/PE/Mach-O parsing, multi-arch disasm, functions, xrefs, CFG, strings, imports); **rizin** (child process, JSON commands, decompile via rz-ghidra, raw console); **ida** (optional, headless) | `object`, `capstone`, `yara-x`, `serde_json` |
+| `crosure-recorder` | `Step` schema, `record(step)`, validation, **hash chain**, SQLite + blob store, chain verification. Depends on nothing else in the workspace | `serde`, `rusqlite`, `sha2`, `ulid` |
+| `crosure-graph` | Edges (`next`/`derived_from`/`branch`/`confirms`/`refutes`), hypotheses, replay cursor, graph diff and merge, attention aggregation | `petgraph` |
+| `crosure-insight` | Function fingerprints (normalized-mnemonic simhash), cross-sample memory, playbook mining (frequent subsequences) and replay | `crosure-engine`, `crosure-graph` |
+| `crosure-copilot` | OpenAI-compatible LLM client (cloud or Ollama), local embeddings + retrieval, agent loop whose tool calls are recorded as `actor: agent` steps, report generator | `reqwest`, `tokio`, `fastembed` (ONNX) |
+| `crosure-learn` | Challenges, score a student graph against expert graphs, graded hints | `crosure-graph`, `crosure-insight` |
+| `crosure-dataset` | Exporters: trajectories, SFT chat, rationale, DPO pairs, graph, dataset card | `serde_json` |
+| `crosure-ingest` | Local WebSocket server that turns plugin events into steps | `tokio-tungstenite` |
+| `crosure-py` | Python bindings: open the store, iterate sessions, call exporters | `pyo3` |
+| `crosure-mcp` *(roadmap)* | MCP server so outside agents use the engine, with every call recorded | `crosure-engine`, `crosure-recorder` |
+
+Rules borrowed from Recurse's setup that we keep: no crate depends on Tauri,
+each crate builds and tests on its own, `clippy` denies `unwrap`/`panic`,
+and the `dev` profile builds dependencies at `opt-level = 3` so analysis
+isn't slow in development.
+
+### TypeScript (frontend, `tauri/src`)
+React 19 + TypeScript + Vite, Tailwind v4 + shadcn/ui, Zustand stores,
+**@xyflow/react** + dagre (Investigation Canvas and CFG), `@tanstack/react-virtual`
+(big listings), Monaco (decompile view), Vitest + ESLint + Prettier.
+
+### Python (`python/`)
+| Package | Job | Key dependencies |
+| --- | --- | --- |
+| `crosure_ml` | LoRA fine-tuning, DPO, evaluation, CrosureBench scoring. Reads data through `crosure-py` | `transformers`, `peft`, `trl`, `unsloth`, `datasets` |
+| `crosure_voice` | Local speech-to-text sidecar for think-aloud notes | `faster-whisper` |
+| `plugins/ida`, `plugins/ghidra` | Stream actions to `crosure-ingest` | IDAPython, PyGhidra |
+| `plugins/x64dbg` | Same, for the debugger | x64dbg Python plugin (or C++) |
+
+### Tooling
+`just` as the single entry point (`just dev`, `just test`, `just lint`),
+`cargo clippy/fmt/test`, `npm` + Vitest/ESLint/Prettier, `uv` + `ruff` +
+`pytest` for Python, GitHub Actions CI running all three.
+
+### Repo layout
+```
+crosure/
+  Cargo.toml  justfile
+  crates/
+    crosure-engine/  crosure-recorder/  crosure-graph/  crosure-insight/
+    crosure-copilot/ crosure-learn/     crosure-dataset/ crosure-ingest/  crosure-py/
+  tauri/
+    src/            React + TypeScript frontend
+    src-tauri/      Rust app glue (commands, events)
+  python/
+    crosure_ml/  crosure_voice/
+  plugins/
+    ghidra/  ida/  x64dbg/
+  samples/        benign crackmes only, never live malware
+  docs/           PLAN.md, schema.md, demo-script.md
+```
+
+### Keeping Rust realistic for a hackathon
+- **Rizin backend first.** It gives decompile and a console on day one.
+  The native engine covers fast parsing, disasm, strings, imports and
+  fingerprints. A home-grown decompiler (what Recurse built with VTIL) is
+  out of scope.
+- **The recorder crate is the priority.** It's small, has no other
+  dependencies, and is the core of Crosure. Build and test it first.
+- **Keep crates thin and split by owner** so four people don't block each
+  other. The Tauri layer only wires things together.
+- **Python stays off the app's critical path.** The app runs without
+  Python; Python is for training and plugins.
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | React + TypeScript + Vite, Tailwind + shadcn/ui, **@xyflow/react** + dagre, Zustand, Monaco |
-| Backend | Python 3.11, FastAPI, uvicorn, pydantic |
-| RE engine | rizin + `rzpipe` (+ rz-ghidra decompiler), LIEF/pefile, capstone, yara-python |
-| Storage | SQLite + FTS5, content-addressed blobs |
-| AI | sentence-transformers, OpenAI-compatible LLM or Ollama, Unsloth/PEFT for LoRA, faster-whisper |
-| Plugins | Ghidra (Java/Jython), x64dbg (Python plugin), IDA (IDAPython) |
+| Desktop shell | Tauri 2 |
+| Frontend | React 19 + TypeScript + Vite, Tailwind v4 + shadcn/ui, @xyflow/react, Zustand, Monaco |
+| Core | Rust workspace (crates above), tokio, serde |
+| RE engine | native (`object` + `capstone`) + rizin backend (+ rz-ghidra) + optional IDA; `yara-x` |
+| Storage | SQLite via `rusqlite` (bundled, FTS5) + content-addressed blobs |
+| AI (in app) | OpenAI-compatible API or Ollama via `reqwest`; local embeddings via `fastembed` |
+| AI (training) | Python: transformers, PEFT, TRL, Unsloth; faster-whisper for voice |
+| Plugins | IDAPython, PyGhidra, x64dbg |
 | Safety | Static by default. Dynamic only in an isolated VM. Samples zipped (`infected`). Never commit live malware |
-
-**Why not Recurse's Rust stack:** it's a hackathon. Python gives the engine
-(rzpipe), the ML (HF, Unsloth), and Whisper in one language. Our time goes
-into the parts that are new. We can wrap the app in Tauri later.
-
-```
-crosure/
-  frontend/
-  backend/crosure/{api,engine,recorder,graph,insight,copilot,learn,dataset,ingest}/
-  backend/tests/
-  plugins/{ghidra,x64dbg,ida}/
-  samples/        benign crackmes only
-  docs/           PLAN.md, schema.md, demo-script.md
-```
 
 ---
 
@@ -301,7 +363,8 @@ crosure/
 
 **Prep (~2 weeks before the event)**
 - Days 1–2: lock the schema, set up the repo skeleton and CI, collect crackmes + benign samples.
-- Days 3–5: engine adapter, recorder + hash chain, SQLite.
+- Days 1–2 also: Cargo workspace, Tauri app shell, `justfile`, CI (cargo + npm + uv).
+- Days 3–5: `crosure-recorder` (schema, hash chain, SQLite) and `crosure-engine` (rizin backend first, then native parsing/disasm).
 - Days 6–9: workbench, live canvas, intent chips, replay.
 - Days 10–12: **record 20–30 real sessions ourselves** (the seed dataset),
   fingerprints, retrieval index. Optional LoRA run on a cloud GPU.
@@ -315,10 +378,10 @@ crosure/
 
 | Role | Owns |
 | --- | --- |
-| Backend/RE | rizin adapter, engine API, fingerprints, safety |
-| Recorder/Data | schema, recorder, hash chain, graph, exporters |
-| Frontend | workbench, canvas, timeline, heatmap, Learn screens |
-| AI/Pitch | copilot, LoRA experiment, report, slides and demo |
+| Engine (Rust) | `crosure-engine`, `crosure-insight` fingerprints, `crosure-ingest`, safety |
+| Recorder/Data (Rust) | `crosure-recorder`, `crosure-graph`, `crosure-dataset`, `crosure-learn`, Tauri commands |
+| Frontend (TypeScript) | workbench, canvas, timeline, heatmap, Learn screens |
+| AI/Pitch (Rust + Python) | `crosure-copilot`, `crosure-py`, `python/crosure_ml` LoRA run, report, slides and demo |
 
 ---
 
@@ -371,6 +434,6 @@ crosure/
 ## 12. Defaults we assume (change if needed)
 
 - Team of 4, a 24–36 h event with ~2 weeks of prep.
-- Web-first app (Tauri wrapper later); Python backend.
+- Same stack as Recurse: Tauri 2 desktop app, React + TypeScript frontend, Rust core crates, Python for ML and plugins.
 - LLM: any OpenAI-compatible API for the demo, with Ollama as the offline fallback.
 - Plugins, voice, sandbox and fine-tuning are roadmap unless prep goes fast.
