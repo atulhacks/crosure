@@ -42,7 +42,7 @@ fn openai_request_maps_turns_and_results() {
         ],
         ..Default::default()
     };
-    let body = openai_request("m", &t, false);
+    let body = openai_request("p", "m", &t, false);
     let roles: Vec<&str> = body["messages"]
         .as_array()
         .into_iter()
@@ -62,7 +62,7 @@ fn openai_request_maps_turns_and_results() {
     let filter = &body["tools"][1]["function"]["parameters"]["properties"]["filter"]["type"];
     assert_eq!(filter, "string");
     assert!(body["tools"][1]["function"].get("strict").is_none());
-    let strict = openai_request("m", &t, true);
+    let strict = openai_request("p", "m", &t, true);
     assert_eq!(strict["tools"][1]["function"]["strict"], true);
 }
 
@@ -121,4 +121,80 @@ fn settings_migrate_merge_and_chain() -> Result<(), Box<dyn std::error::Error>> 
     );
     assert!(presets().iter().any(|p| p.kind == ProviderKind::Anthropic));
     Ok(())
+}
+
+#[test]
+fn reasoning_and_thought_signatures_go_back_to_their_own_provider() {
+    let mut turn = turn_with_call();
+    turn.raw = json!({
+        "reasoning_content": "Imports first.",
+        "tool_calls": [{ "id": "c1", "extra_content": { "google": { "thought_signature": "sig" } } }]
+    });
+    let t = Transcript {
+        entries: vec![
+            Entry::User("task".into()),
+            Entry::Assistant {
+                provider: "moonshot".into(),
+                turn,
+            },
+            Entry::Results {
+                results: vec![ToolResult {
+                    id: "c1".into(),
+                    content: "8 imports".into(),
+                    is_error: false,
+                }],
+                note: None,
+            },
+        ],
+        ..Default::default()
+    };
+    let own = openai_request("moonshot", "kimi-k2-thinking", &t, false);
+    let a = &own["messages"][2];
+    assert_eq!(a["reasoning_content"], "Imports first.");
+    assert_eq!(
+        a["tool_calls"][0]["extra_content"]["google"]["thought_signature"],
+        "sig"
+    );
+    // after a fallback, another provider never sees it
+    let other = openai_request("openai", "gpt", &t, true);
+    assert!(other["messages"][2].get("reasoning_content").is_none());
+    assert!(other["messages"][2]["tool_calls"][0]
+        .get("extra_content")
+        .is_none());
+}
+
+#[test]
+fn presets_cover_hosted_and_local_providers() {
+    let p = presets();
+    for id in [
+        "anthropic",
+        "openai",
+        "gemini",
+        "deepseek",
+        "zai",
+        "moonshot",
+        "xai",
+        "qwen",
+        "ollama",
+        "lmstudio",
+        "llamacpp",
+        "vllm",
+    ] {
+        assert!(p.iter().any(|x| x.id == id), "missing preset {id}");
+    }
+    let mut ids: Vec<&str> = p.iter().map(|x| x.id.as_str()).collect();
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), p.len(), "preset ids are unique");
+    // a custom Anthropic-compatible endpoint is not ready until it has a URL
+    let mut c = p
+        .iter()
+        .find(|x| x.id == "custom-anthropic")
+        .cloned()
+        .unwrap_or_else(|| p[0].clone());
+    c.api_key = Some("k".into());
+    c.model = "glm-4.6".into();
+    assert!(!c.ready());
+    c.base_url = "https://api.z.ai/api/anthropic".into();
+    assert!(c.ready());
 }

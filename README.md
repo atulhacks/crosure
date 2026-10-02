@@ -34,8 +34,10 @@ cargo run -p crosure-agent --bin crosure-reverse -- ./sample "Find how the input
 **Providers and controls** ([docs/ai-agent.md](docs/ai-agent.md)):
 - Supported providers:
   - Anthropic Claude;
-  - any OpenAI-compatible server (OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral);
-  - local Ollama or LM Studio.
+  - OpenAI, Gemini, DeepSeek, Z.ai (GLM), Moonshot (Kimi), xAI, Qwen, Mistral,
+    OpenRouter, Groq, Together, Fireworks, Cerebras;
+  - any OpenAI- or Anthropic-compatible endpoint;
+  - local Ollama, LM Studio, llama.cpp or vLLM.
 - Steps record the provider and model that took them.
 - If a provider declines, the same conversation can continue on the next
   provider in your list.

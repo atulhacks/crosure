@@ -134,7 +134,8 @@ fn anthropic_round_trip_headers_and_refusal() -> Result<(), Box<dyn std::error::
         "stop_details": { "type": "refusal", "category": "cyber", "explanation": "declined" },
         "usage": { "input_tokens": 10, "cache_read_input_tokens": 90, "output_tokens": 0 }
     }));
-    let p = AnthropicProvider::new("anthropic", "claude-opus-5-5", &base, "sk-ant-test")?;
+    let p = AnthropicProvider::new("anthropic", "claude-opus-5-5", &base, "sk-ant-test")?
+        .with_claude_api(true);
     let turn = p.next(&transcript())?;
     let (head, body) = rx.recv()?;
     let h = head.to_lowercase();
@@ -146,5 +147,45 @@ fn anthropic_round_trip_headers_and_refusal() -> Result<(), Box<dyn std::error::
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(turn.input_tokens, 100, "cache reads count as input");
     assert!(matches!(turn.stop, Stop::Refusal { category: Some(ref c), .. } if c == "cyber"));
+    Ok(())
+}
+
+#[test]
+fn anthropic_compatible_server_gets_a_plain_request() -> Result<(), Box<dyn std::error::Error>> {
+    let (base, rx) = serve_once(json!({
+        "stop_reason": "end_turn", "content": [{ "type": "text", "text": "ok" }],
+        "usage": { "input_tokens": 3, "output_tokens": 1 }
+    }));
+    let p = AnthropicProvider::new(
+        "custom-anthropic",
+        "glm-4.6",
+        &format!("{base}/api/anthropic"),
+        "k",
+    )?;
+    let turn = p.next(&transcript())?;
+    let (head, body) = rx.recv()?;
+    assert!(head.starts_with("POST /api/anthropic/v1/messages"));
+    assert!(!head.to_lowercase().contains("anthropic-beta"));
+    for k in ["thinking", "output_config", "fallbacks", "cache_control"] {
+        assert!(body.get(k).is_none(), "{k} sent to a compatible server");
+    }
+    assert_eq!(body["model"], "glm-4.6");
+    assert_eq!(turn.text(), "ok");
+    Ok(())
+}
+
+#[test]
+fn model_list_strips_gemini_prefix() -> Result<(), Box<dyn std::error::Error>> {
+    let (base, rx) = serve_once(json!({ "data": [
+        { "id": "models/gemini-2.5-pro" }, { "id": "kimi-k2" }
+    ] }));
+    let mut cfg = crosure_agent::presets()
+        .into_iter()
+        .find(|p| p.id == "custom")
+        .ok_or("no custom preset")?;
+    cfg.base_url = base;
+    let ids = crosure_agent::list_models(&cfg)?;
+    assert!(rx.recv()?.0.starts_with("GET /models"));
+    assert_eq!(ids, vec!["gemini-2.5-pro", "kimi-k2"]);
     Ok(())
 }

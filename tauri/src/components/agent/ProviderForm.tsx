@@ -31,11 +31,12 @@ export function isLocal(url: string): boolean {
 }
 
 /**
- * Whether the draft can run: enabled, has a model, and has a key (saved,
- * from the environment, just typed) unless it is local. Mirrors the backend.
+ * Whether the draft can run: enabled, has an endpoint and a model, and has a
+ * key (saved, from the environment, just typed) unless it is local. Mirrors
+ * the backend.
  */
 export function isReady(d: Draft): boolean {
-  if (!d.enabled || !d.model.trim()) return false;
+  if (!d.enabled || !d.base_url.trim() || !d.model.trim()) return false;
   if (isLocal(d.base_url)) return true;
   if (d.api_key !== undefined && d.api_key !== null) return d.api_key.trim() !== "";
   return d.key_source === "saved" || d.key_source === "env";
@@ -117,6 +118,11 @@ export function ProviderForm({
         <input
           className={`${input} font-mono text-xs`}
           value={draft.base_url}
+          placeholder={
+            draft.kind === "anthropic"
+              ? "https://api.z.ai/api/anthropic (calls <url>/v1/messages)"
+              : "https://host/v1 (calls <url>/chat/completions)"
+          }
           onChange={(e) => set({ base_url: e.target.value })}
         />
       </Field>

@@ -13,9 +13,10 @@ export function AgentSetup() {
       </div>
       <p className="text-xs text-muted">
         The agent reverses the binary with the same tools you use, and every call it makes is
-        recorded on the graph with its reason. Use Claude, OpenAI, Gemini, OpenRouter, Groq,
-        DeepSeek or Mistral, or a local model through Ollama or LM Studio, so samples never leave
-        your machine.
+        recorded on the graph with its reason. Use Claude, OpenAI, Gemini, DeepSeek, Z.ai, Moonshot
+        (Kimi), xAI, Qwen, Mistral, OpenRouter or any OpenAI- or Anthropic-compatible API, or a
+        local model through Ollama, LM Studio, llama.cpp or vLLM, so samples never leave your
+        machine.
       </p>
       <Button variant="primary" className="self-start" onClick={() => setSettingsOpen(true)}>
         <Settings2 size={13} /> Set up providers

@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::anthropic::AnthropicProvider;
+use super::anthropic::{first_party, AnthropicProvider};
 use super::http::Http;
 use super::openai::OpenAiProvider;
+use super::presets::presets;
 use super::Provider;
 use crate::AgentError;
 
@@ -79,135 +80,13 @@ impl ProviderConfig {
         (None, src)
     }
 
-    /// Enabled, has a model, and has a key unless it is local.
+    /// Enabled, has an endpoint and a model, and has a key unless it is local.
     pub fn ready(&self) -> bool {
-        self.enabled && !self.model.trim().is_empty() && self.key().1 != KeySource::Missing
+        self.enabled
+            && !self.base_url.trim().is_empty()
+            && !self.model.trim().is_empty()
+            && self.key().1 != KeySource::Missing
     }
-}
-
-fn preset(
-    id: &str,
-    kind: ProviderKind,
-    label: &str,
-    base: &str,
-    model: &str,
-    env: Option<&str>,
-    strict: bool,
-) -> ProviderConfig {
-    ProviderConfig {
-        id: id.into(),
-        kind,
-        label: label.into(),
-        base_url: base.into(),
-        model: model.into(),
-        api_key: None,
-        key_env: env.map(str::to_string),
-        strict_tools: strict,
-        enabled: true,
-    }
-}
-
-/// Ready-made provider templates. Models other than Claude are left for the
-/// user to pick (use "Fetch models"), so nothing here goes stale.
-///
-/// ```
-/// let p = crosure_agent::presets();
-/// assert!(p.iter().any(|p| p.id == "ollama" && p.base_url.contains("11434")));
-/// ```
-pub fn presets() -> Vec<ProviderConfig> {
-    use ProviderKind::{Anthropic, OpenaiCompatible as Oai};
-    vec![
-        preset(
-            "anthropic",
-            Anthropic,
-            "Anthropic Claude",
-            "https://api.anthropic.com",
-            super::DEFAULT_MODEL,
-            Some("ANTHROPIC_API_KEY"),
-            true,
-        ),
-        preset(
-            "openai",
-            Oai,
-            "OpenAI",
-            "https://api.openai.com/v1",
-            "",
-            Some("OPENAI_API_KEY"),
-            true,
-        ),
-        preset(
-            "gemini",
-            Oai,
-            "Google Gemini",
-            "https://generativelanguage.googleapis.com/v1beta/openai",
-            "",
-            Some("GEMINI_API_KEY"),
-            false,
-        ),
-        preset(
-            "openrouter",
-            Oai,
-            "OpenRouter",
-            "https://openrouter.ai/api/v1",
-            "",
-            Some("OPENROUTER_API_KEY"),
-            false,
-        ),
-        preset(
-            "groq",
-            Oai,
-            "Groq",
-            "https://api.groq.com/openai/v1",
-            "",
-            Some("GROQ_API_KEY"),
-            false,
-        ),
-        preset(
-            "deepseek",
-            Oai,
-            "DeepSeek",
-            "https://api.deepseek.com/v1",
-            "",
-            Some("DEEPSEEK_API_KEY"),
-            false,
-        ),
-        preset(
-            "mistral",
-            Oai,
-            "Mistral",
-            "https://api.mistral.ai/v1",
-            "",
-            Some("MISTRAL_API_KEY"),
-            false,
-        ),
-        preset(
-            "ollama",
-            Oai,
-            "Ollama (local)",
-            "http://localhost:11434/v1",
-            "",
-            None,
-            false,
-        ),
-        preset(
-            "lmstudio",
-            Oai,
-            "LM Studio (local)",
-            "http://localhost:1234/v1",
-            "",
-            None,
-            false,
-        ),
-        preset(
-            "custom",
-            Oai,
-            "Custom (OpenAI-compatible)",
-            "http://localhost:8000/v1",
-            "",
-            None,
-            false,
-        ),
-    ]
 }
 
 /// All agent settings, saved as `~/.crosure/agent.json` (mode 0600).
@@ -366,7 +245,7 @@ pub fn list_models(cfg: &ProviderConfig) -> Result<Vec<String>, AgentError> {
     let resp = match cfg.kind {
         ProviderKind::Anthropic => http.call(
             &format!("{base}/v1/models?limit=100"),
-            &AnthropicProvider::headers(key.as_deref().unwrap_or("")),
+            &AnthropicProvider::headers(key.as_deref().unwrap_or(""), first_party(&cfg.base_url)),
             None,
         )?,
         ProviderKind::OpenaiCompatible => http.call(
@@ -381,7 +260,8 @@ pub fn list_models(cfg: &ProviderConfig) -> Result<Vec<String>, AgentError> {
         .map(|a| {
             a.iter()
                 .filter_map(|m| m["id"].as_str().or_else(|| m["name"].as_str()))
-                .map(str::to_string)
+                // Gemini lists `models/gemini-…`; requests take the bare id.
+                .map(|id| id.strip_prefix("models/").unwrap_or(id).to_string())
                 .collect()
         })
         .unwrap_or_default();

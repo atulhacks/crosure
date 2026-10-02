@@ -5,14 +5,18 @@ mod anthropic;
 mod config;
 mod http;
 mod openai;
+mod presets;
 mod scripted;
 
-pub use anthropic::{anthropic_request, AnthropicProvider, DEFAULT_MODEL};
+pub use anthropic::{
+    anthropic_request, compatible as anthropic_compatible, AnthropicProvider, DEFAULT_MODEL,
+};
 pub use config::{
-    build_chain, build_provider, list_models, presets, AgentSettings, KeySource, ProviderConfig,
+    build_chain, build_provider, list_models, AgentSettings, KeySource, ProviderConfig,
     ProviderKind, ProviderView,
 };
 pub use openai::{openai_request, OpenAiProvider};
+pub use presets::presets;
 pub use scripted::ScriptedProvider;
 
 use crate::{AgentError, Transcript, Turn};

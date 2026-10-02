@@ -175,6 +175,7 @@ describe("isReady", () => {
     expect(isReady({ ...d, model: "m", key_source: "env" })).toBe(true);
     expect(isReady({ ...d, model: "m", base_url: "http://localhost:1234/v1" })).toBe(true);
     expect(isReady({ ...d, model: "m", api_key: "sk", enabled: false })).toBe(false);
+    expect(isReady({ ...d, model: "m", api_key: "sk", base_url: " " })).toBe(false);
   });
 });
 

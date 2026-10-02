@@ -55,23 +55,49 @@ fn tools(profile: Profile, strict: bool) -> Vec<Value> {
         .collect()
 }
 
-/// Renders a transcript as an OpenAI-style Chat Completions request (OpenAI,
-/// Gemini's compatibility endpoint, OpenRouter, Groq, DeepSeek, Mistral,
-/// Ollama, LM Studio, vLLM, llama.cpp).
+/// What a reasoning model needs back on its own tool-call turns: the
+/// reasoning text (Kimi, DeepSeek and GLM thinking modes reject the request
+/// without it) and each call's `extra_content` (Gemini thought signatures).
+/// Only echoed to the provider that produced it, in the field it used.
+fn echo_own(m: &mut Value, raw: &Value) {
+    for key in ["reasoning_content", "reasoning"] {
+        if raw[key].as_str().is_some_and(|r| !r.is_empty()) {
+            m[key] = raw[key].clone();
+        }
+    }
+    let raw_calls = raw["tool_calls"].as_array().cloned().unwrap_or_default();
+    if let Some(calls) = m["tool_calls"].as_array_mut() {
+        for c in calls {
+            let extra = raw_calls
+                .iter()
+                .find(|r| r["id"] == c["id"])
+                .map(|r| r["extra_content"].clone())
+                .filter(|e| !e.is_null());
+            if let Some(e) = extra {
+                c["extra_content"] = e;
+            }
+        }
+    }
+}
+
+/// Renders a transcript as an OpenAI-style Chat Completions request for
+/// provider `self_id` (OpenAI, Gemini's compatibility endpoint, DeepSeek,
+/// Z.ai, Moonshot, xAI, Qwen, OpenRouter, Groq, Mistral, Ollama, LM Studio,
+/// vLLM, llama.cpp …).
 ///
 /// ```
 /// use crosure_agent::{openai_request, Entry, Transcript};
 /// let t = Transcript { entries: vec![Entry::User("hi".into())], ..Default::default() };
-/// let body = openai_request("qwen2.5-coder:14b", &t, false);
+/// let body = openai_request("ollama", "qwen2.5-coder:14b", &t, false);
 /// assert_eq!(body["messages"][0]["role"], "system");
 /// assert_eq!(body["tools"][0]["type"], "function");
 /// ```
-pub fn openai_request(model: &str, t: &Transcript, strict: bool) -> Value {
+pub fn openai_request(self_id: &str, model: &str, t: &Transcript, strict: bool) -> Value {
     let mut messages = vec![json!({ "role": "system", "content": t.system_prompt() })];
     for e in &t.entries {
         match e {
             Entry::User(text) => messages.push(json!({ "role": "user", "content": text })),
-            Entry::Assistant { turn, .. } => {
+            Entry::Assistant { provider, turn } => {
                 let calls: Vec<Value> = turn
                     .blocks
                     .iter()
@@ -87,6 +113,9 @@ pub fn openai_request(model: &str, t: &Transcript, strict: bool) -> Value {
                 let mut m = json!({ "role": "assistant", "content": if text.is_empty() { Value::Null } else { json!(text) } });
                 if !calls.is_empty() {
                     m["tool_calls"] = json!(calls);
+                    if provider == self_id {
+                        echo_own(&mut m, &turn.raw);
+                    }
                 }
                 messages.push(m);
             }
@@ -221,7 +250,7 @@ impl Provider for OpenAiProvider {
         &self.model
     }
     fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
-        let body = openai_request(&self.model, t, self.strict);
+        let body = openai_request(&self.id, &self.model, t, self.strict);
         let url = format!("{}/chat/completions", self.base_url);
         let resp = self
             .http
