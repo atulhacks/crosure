@@ -3,6 +3,7 @@ import { useState } from "react";
 import * as api from "../../api";
 import type { KeySource, ProviderConfig } from "../../types";
 import { Button } from "../ui/Button";
+import { ProviderAdvanced } from "./ProviderAdvanced";
 
 /** Draft of one provider being edited; `api_key` set only when the user typed one. */
 export type Draft = ProviderConfig & { key_source?: KeySource; ready?: boolean };
@@ -22,6 +23,9 @@ export function toConfig(d: Draft): ProviderConfig {
     key_env: d.key_env,
     strict_tools: d.strict_tools,
     enabled: d.enabled,
+    max_completion_tokens: d.max_completion_tokens ?? false,
+    reasoning_effort: d.reasoning_effort || null,
+    headers: d.headers ?? {},
   };
 }
 
@@ -178,6 +182,7 @@ export function ProviderForm({
           )}
         </div>
       </Field>
+      <ProviderAdvanced draft={draft} set={set} />
       <div className="flex items-center gap-4 text-sm">
         <label className="flex items-center gap-1.5 text-muted">
           <input

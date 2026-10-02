@@ -59,6 +59,26 @@ signatures in `extra_content`). Crosure sends that data back only to the
 provider that produced it, in the same field. After a fallback, the next
 provider sees just the text and tool calls.
 
+**Advanced options** (per provider, under **Advanced**):
+- **Reasoning effort.** OpenAI-compatible servers get it as
+  `reasoning_effort`. Anthropic's API gets it as the Claude effort level, and
+  `none` turns thinking off. Other Anthropic-compatible servers get extended
+  thinking with a matching budget.
+- **Send `max_completion_tokens`.** OpenAI's reasoning models (o-series,
+  GPT-5) reject `max_tokens`, so this is always on for `api.openai.com`.
+  Turn it on for any other server that needs it.
+- **Custom headers**, one `Name: value` per line, for gateways and
+  observability proxies. Headers Crosure sets itself (`Authorization`,
+  `x-api-key`, `anthropic-version`) cannot be overridden. Headers are stored
+  in `agent.json`, so don't put secrets there that you wouldn't put in the
+  key field.
+
+**Keys from the environment.** A provider without a configured variable
+reads one named after its id: `my-gateway` reads `MY_GATEWAY_API_KEY`.
+
+OpenRouter's `reasoning_details` are also sent back on the provider's own
+tool-call turns, alongside `reasoning_content` and `reasoning`.
+
 **Anthropic-compatible servers.** For any server other than
 `api.anthropic.com`, the request is a plain Messages API call. Claude-only
 fields (adaptive thinking, effort, server-side fallback, cache control) and

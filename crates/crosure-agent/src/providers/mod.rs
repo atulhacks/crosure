@@ -3,6 +3,7 @@
 
 mod anthropic;
 mod config;
+mod extras;
 mod http;
 mod openai;
 mod presets;
@@ -15,6 +16,7 @@ pub use config::{
     build_chain, build_provider, list_models, AgentSettings, KeySource, ProviderConfig,
     ProviderKind, ProviderView,
 };
+pub use extras::Extras;
 pub use openai::{openai_request, OpenAiProvider};
 pub use presets::presets;
 pub use scripted::ScriptedProvider;

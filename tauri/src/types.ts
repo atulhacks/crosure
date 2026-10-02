@@ -266,6 +266,12 @@ export interface ProviderConfig {
   key_env: string | null;
   strict_tools: boolean;
   enabled: boolean;
+  /** Send the output limit as `max_completion_tokens` (always on for api.openai.com). */
+  max_completion_tokens: boolean;
+  /** `none` | `low` | `medium` | `high`; null keeps the server default. */
+  reasoning_effort: string | null;
+  /** Extra HTTP headers sent with every request. */
+  headers: Record<string, string>;
 }
 
 export interface ProviderView extends ProviderConfig {
