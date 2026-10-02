@@ -13,6 +13,7 @@ members = [
     "crates/crosure-engine",
     "crates/crosure-graph",
     "crates/crosure-session",
+    "tauri/src-tauri",
 ]
 
 [workspace.package]

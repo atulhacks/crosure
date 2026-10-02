@@ -1,0 +1,43 @@
+[package]
+name = "crosure"
+description = "Crosure desktop app: reverse-engineering workbench that records every step"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+default-run = "crosure"
+
+[lib]
+name = "crosure_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde.workspace = true
+serde_json.workspace = true
+dirs = "6"
+crosure-recorder.workspace = true
+crosure-engine.workspace = true
+crosure-graph.workspace = true
+crosure-session.workspace = true
+
+tiny_http = { version = "0.12", optional = true }
+
+[features]
+devbridge = ["dep:tiny_http"]
+
+[[bin]]
+name = "crosure"
+path = "src/main.rs"
+
+[[bin]]
+name = "crosure-devbridge"
+path = "src/bin/devbridge.rs"
+required-features = ["devbridge"]
+
+[lints]
+workspace = true

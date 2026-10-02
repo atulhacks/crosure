@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-bg: #0b0e14;
+  --color-panel: #11151d;
+  --color-panel-2: #161b25;
+  --color-line: #232a37;
+  --color-fg: #d6dde8;
+  --color-dim: #7d8899;
+  --color-accent: #22d3ee;
+  --color-accent-2: #a78bfa;
+  --color-bad: #f43f5e;
+  --color-good: #4ade80;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3242;
+  border-radius: 6px;
+}
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__controls button {
+  background: var(--color-panel-2);
+  border-color: var(--color-line);
+  fill: var(--color-fg);
+}
