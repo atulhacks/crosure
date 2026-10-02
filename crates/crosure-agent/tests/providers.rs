@@ -198,3 +198,58 @@ fn presets_cover_hosted_and_local_providers() {
     c.base_url = "https://api.z.ai/api/anthropic".into();
     assert!(c.ready());
 }
+
+#[test]
+fn openrouter_reasoning_details_and_openai_output_limit() {
+    let mut turn = turn_with_call();
+    turn.raw = json!({ "reasoning_details": [{ "type": "reasoning.encrypted", "data": "x" }] });
+    let t = Transcript {
+        entries: vec![
+            Entry::User("task".into()),
+            Entry::Assistant {
+                provider: "openrouter".into(),
+                turn,
+            },
+        ],
+        ..Default::default()
+    };
+    let body = openai_request("openrouter", "m", &t, false);
+    assert_eq!(body["messages"][2]["reasoning_details"][0]["data"], "x");
+
+    let p = presets();
+    let openai = p
+        .iter()
+        .find(|x| x.id == "openai")
+        .cloned()
+        .unwrap_or_else(|| p[0].clone());
+    assert!(
+        openai.extras().max_completion_tokens,
+        "api.openai.com needs max_completion_tokens"
+    );
+    let deepseek = p
+        .iter()
+        .find(|x| x.id == "deepseek")
+        .cloned()
+        .unwrap_or_else(|| p[0].clone());
+    assert!(!deepseek.extras().max_completion_tokens);
+    let mut custom = p
+        .iter()
+        .find(|x| x.id == "custom")
+        .cloned()
+        .unwrap_or_else(|| p[0].clone());
+    custom.id = "my-gateway".into();
+    assert_eq!(
+        custom.key_env_name(),
+        "CUSTOM_API_KEY".replace("CUSTOM", "MY_GATEWAY")
+    );
+}
+
+#[test]
+fn old_settings_without_new_fields_still_load() {
+    let s = AgentSettings::from_json(
+        br#"{"providers":[{"id":"zai","kind":"openai_compatible","label":"Z","base_url":"https://api.z.ai/api/paas/v4","model":"glm-4.6","key_env":"ZAI_API_KEY","strict_tools":false,"enabled":true}],"active":"zai"}"#,
+    );
+    let p = &s.providers[0];
+    assert_eq!(p.id, "zai");
+    assert!(p.headers.is_empty() && p.reasoning_effort.is_none() && !p.max_completion_tokens);
+}

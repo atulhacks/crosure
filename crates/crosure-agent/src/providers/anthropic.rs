@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
 
+use super::extras::Extras;
 use super::http::Http;
 use super::Provider;
 use crate::tools::tool_definitions_for;
@@ -156,6 +157,7 @@ pub struct AnthropicProvider {
     base_url: String,
     api_key: String,
     claude_api: bool,
+    extras: Extras,
     http: Http,
 }
 
@@ -171,8 +173,15 @@ impl AnthropicProvider {
             base_url: base_url.trim_end_matches('/').into(),
             api_key: api_key.trim().into(),
             claude_api: first_party(base_url),
+            extras: Extras::default(),
             http: Http::new()?,
         })
+    }
+
+    /// Sets custom headers and reasoning effort.
+    pub fn with_extras(mut self, extras: Extras) -> Self {
+        self.extras = extras;
+        self
     }
 
     /// Overrides whether the server is Anthropic's own API (decided from the
@@ -206,8 +215,11 @@ impl Provider for AnthropicProvider {
         if !self.claude_api {
             compatible(&mut body);
         }
+        self.extras.apply_anthropic(&mut body, self.claude_api);
         let url = format!("{}/v1/messages", self.base_url);
-        let headers = Self::headers(&self.api_key, self.claude_api);
+        let headers = self
+            .extras
+            .with_headers(Self::headers(&self.api_key, self.claude_api));
         let resp = self.http.call(&url, &headers, Some(&body))?;
         Ok(parse_anthropic(&resp))
     }

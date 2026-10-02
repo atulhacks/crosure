@@ -189,3 +189,53 @@ fn model_list_strips_gemini_prefix() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(ids, vec!["gemini-2.5-pro", "kimi-k2"]);
     Ok(())
 }
+
+#[test]
+fn openai_extras_reach_the_wire() -> Result<(), Box<dyn std::error::Error>> {
+    let (base, rx) = serve_once(json!({
+        "choices": [{ "message": { "content": "ok" }, "finish_reason": "stop" }]
+    }));
+    let extras = crosure_agent::Extras {
+        headers: vec![
+            ("X-Gateway-Tag".into(), "crosure".into()),
+            ("Authorization".into(), "Bearer hijack".into()),
+        ],
+        reasoning_effort: Some("high".into()),
+        max_completion_tokens: true,
+    };
+    let p =
+        OpenAiProvider::new("openai", "gpt-5", &base, Some("sk-real"), true)?.with_extras(extras);
+    p.next(&transcript())?;
+    let (head, body) = rx.recv()?;
+    let h = head.to_lowercase();
+    assert!(h.contains("x-gateway-tag: crosure"));
+    assert!(h.contains("authorization: bearer sk-real"));
+    assert!(
+        !h.contains("hijack"),
+        "managed headers cannot be overridden"
+    );
+    assert_eq!(body["max_completion_tokens"], 8192);
+    assert!(body.get("max_tokens").is_none());
+    assert_eq!(body["reasoning_effort"], "high");
+    Ok(())
+}
+
+#[test]
+fn claude_api_effort_none_turns_thinking_off() -> Result<(), Box<dyn std::error::Error>> {
+    let (base, rx) = serve_once(json!({
+        "stop_reason": "end_turn", "content": [{ "type": "text", "text": "ok" }],
+        "usage": { "input_tokens": 1, "output_tokens": 1 }
+    }));
+    let extras = crosure_agent::Extras {
+        reasoning_effort: Some("none".into()),
+        ..Default::default()
+    };
+    let p = AnthropicProvider::new("anthropic", "claude-opus-5-5", &base, "k")?
+        .with_claude_api(true)
+        .with_extras(extras);
+    p.next(&transcript())?;
+    let (_, body) = rx.recv()?;
+    assert!(body.get("thinking").is_none() && body.get("output_config").is_none());
+    assert_eq!(body["fallbacks"], "default");
+    Ok(())
+}

@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
 
+use super::extras::Extras;
 use super::http::Http;
 use super::Provider;
 use crate::tools::tool_definitions_for;
@@ -64,6 +65,13 @@ fn echo_own(m: &mut Value, raw: &Value) {
         if raw[key].as_str().is_some_and(|r| !r.is_empty()) {
             m[key] = raw[key].clone();
         }
+    }
+    // OpenRouter's structured reasoning (encrypted blocks, signatures).
+    if raw["reasoning_details"]
+        .as_array()
+        .is_some_and(|d| !d.is_empty())
+    {
+        m["reasoning_details"] = raw["reasoning_details"].clone();
     }
     let raw_calls = raw["tool_calls"].as_array().cloned().unwrap_or_default();
     if let Some(calls) = m["tool_calls"].as_array_mut() {
@@ -209,6 +217,7 @@ pub struct OpenAiProvider {
     base_url: String,
     api_key: Option<String>,
     strict: bool,
+    extras: Extras,
     http: Http,
 }
 
@@ -229,8 +238,15 @@ impl OpenAiProvider {
                 .map(|k| k.trim().to_string())
                 .filter(|k| !k.is_empty()),
             strict,
+            extras: Extras::default(),
             http: Http::new()?,
         })
+    }
+
+    /// Sets custom headers, reasoning effort and the output-limit field.
+    pub fn with_extras(mut self, extras: Extras) -> Self {
+        self.extras = extras;
+        self
     }
 
     pub(crate) fn headers(api_key: Option<&str>) -> Vec<(&'static str, String)> {
@@ -250,11 +266,13 @@ impl Provider for OpenAiProvider {
         &self.model
     }
     fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
-        let body = openai_request(&self.id, &self.model, t, self.strict);
+        let mut body = openai_request(&self.id, &self.model, t, self.strict);
+        self.extras.apply_openai(&mut body);
         let url = format!("{}/chat/completions", self.base_url);
-        let resp = self
-            .http
-            .call(&url, &Self::headers(self.api_key.as_deref()), Some(&body))?;
+        let headers = self
+            .extras
+            .with_headers(Self::headers(self.api_key.as_deref()));
+        let resp = self.http.call(&url, &headers, Some(&body))?;
         if resp["choices"].as_array().is_none_or(|c| c.is_empty()) {
             return Err(AgentError::Protocol(format!(
                 "no choices in response: {}",

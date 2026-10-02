@@ -58,6 +58,9 @@ pub fn presets() -> Vec<ProviderConfig> {
                 key_env: env.map(str::to_string),
                 strict_tools: strict,
                 enabled: true,
+                max_completion_tokens: false,
+                reasoning_effort: None,
+                headers: Default::default(),
             },
         )
         .collect()

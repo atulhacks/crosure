@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -36,6 +38,16 @@ pub struct ProviderConfig {
     pub strict_tools: bool,
     #[serde(default = "yes")]
     pub enabled: bool,
+    /// Send the output limit as `max_completion_tokens` (always on for
+    /// api.openai.com, whose reasoning models reject `max_tokens`).
+    #[serde(default)]
+    pub max_completion_tokens: bool,
+    /// Reasoning effort (`none`, `low`, `medium`, `high`); unset keeps the server default.
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
+    /// Extra HTTP headers sent with every request.
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
 }
 
 fn yes() -> bool {
@@ -64,10 +76,8 @@ impl ProviderConfig {
         if let Some(k) = self.api_key.clone().filter(|k| !k.trim().is_empty()) {
             return (Some(k), KeySource::Saved);
         }
-        if let Some(k) = self
-            .key_env
-            .as_ref()
-            .and_then(|v| std::env::var(v).ok())
+        if let Some(k) = std::env::var(self.key_env_name())
+            .ok()
             .filter(|k| !k.trim().is_empty())
         {
             return (Some(k), KeySource::Env);
@@ -153,6 +163,7 @@ impl AgentSettings {
             .map(|p| {
                 let mut config = p.clone();
                 config.api_key = None;
+                config.key_env = Some(p.key_env_name());
                 ProviderView {
                     ready: p.ready(),
                     key_source: p.key().1,
@@ -204,19 +215,25 @@ pub struct ProviderView {
 pub fn build_provider(cfg: &ProviderConfig) -> Result<Box<dyn Provider>, AgentError> {
     let (key, _) = cfg.key();
     Ok(match cfg.kind {
-        ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
-            &cfg.id,
-            &cfg.model,
-            &cfg.base_url,
-            key.as_deref().unwrap_or(""),
-        )?),
-        ProviderKind::OpenaiCompatible => Box::new(OpenAiProvider::new(
-            &cfg.id,
-            &cfg.model,
-            &cfg.base_url,
-            key.as_deref(),
-            cfg.strict_tools,
-        )?),
+        ProviderKind::Anthropic => Box::new(
+            AnthropicProvider::new(
+                &cfg.id,
+                &cfg.model,
+                &cfg.base_url,
+                key.as_deref().unwrap_or(""),
+            )?
+            .with_extras(cfg.extras()),
+        ),
+        ProviderKind::OpenaiCompatible => Box::new(
+            OpenAiProvider::new(
+                &cfg.id,
+                &cfg.model,
+                &cfg.base_url,
+                key.as_deref(),
+                cfg.strict_tools,
+            )?
+            .with_extras(cfg.extras()),
+        ),
     })
 }
 
@@ -242,18 +259,18 @@ pub fn list_models(cfg: &ProviderConfig) -> Result<Vec<String>, AgentError> {
     let http = Http::new()?;
     let (key, _) = cfg.key();
     let base = cfg.base_url.trim_end_matches('/');
-    let resp = match cfg.kind {
-        ProviderKind::Anthropic => http.call(
-            &format!("{base}/v1/models?limit=100"),
-            &AnthropicProvider::headers(key.as_deref().unwrap_or(""), first_party(&cfg.base_url)),
-            None,
-        )?,
-        ProviderKind::OpenaiCompatible => http.call(
-            &format!("{base}/models"),
-            &OpenAiProvider::headers(key.as_deref()),
-            None,
-        )?,
+    let extras = cfg.extras();
+    let (url, headers) = match cfg.kind {
+        ProviderKind::Anthropic => (
+            format!("{base}/v1/models?limit=100"),
+            AnthropicProvider::headers(key.as_deref().unwrap_or(""), first_party(&cfg.base_url)),
+        ),
+        ProviderKind::OpenaiCompatible => (
+            format!("{base}/models"),
+            OpenAiProvider::headers(key.as_deref()),
+        ),
     };
+    let resp = http.call(&url, &extras.with_headers(headers), None)?;
     let mut ids: Vec<String> = resp["data"]
         .as_array()
         .or_else(|| resp["models"].as_array())

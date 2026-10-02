@@ -144,6 +144,9 @@ describe("toConfig", () => {
       model: "qwen2.5-coder:14b",
       key_env: null,
       strict_tools: false,
+      max_completion_tokens: false,
+      reasoning_effort: null,
+      headers: {},
       enabled: true,
       key_source: "not_needed" as const,
       ready: true,
@@ -165,6 +168,9 @@ describe("isReady", () => {
       model: "",
       key_env: "OPENAI_API_KEY",
       strict_tools: true,
+      max_completion_tokens: false,
+      reasoning_effort: null,
+      headers: {},
       enabled: true,
       key_source: "missing" as const,
     };
@@ -176,6 +182,15 @@ describe("isReady", () => {
     expect(isReady({ ...d, model: "m", base_url: "http://localhost:1234/v1" })).toBe(true);
     expect(isReady({ ...d, model: "m", api_key: "sk", enabled: false })).toBe(false);
     expect(isReady({ ...d, model: "m", api_key: "sk", base_url: " " })).toBe(false);
+  });
+});
+
+describe("provider headers", () => {
+  it("round-trips Name: value lines", async () => {
+    const { parseHeaders, formatHeaders } = await import("../components/agent/ProviderAdvanced");
+    const h = parseHeaders("X-Tag: crosure\n\nbad line\nAuth: Bearer a:b ");
+    expect(h).toEqual({ "X-Tag": "crosure", Auth: "Bearer a:b" });
+    expect(parseHeaders(formatHeaders(h))).toEqual(h);
   });
 });
 
