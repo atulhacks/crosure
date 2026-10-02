@@ -80,6 +80,10 @@ pub struct Target {
     /// Structural fingerprint of the function, for cross-sample matching.
     pub func_fp: Option<String>,
     pub section: Option<String>,
+    /// Human name of what was targeted (function, import, or string literal).
+    /// Omitted when empty, so steps recorded before this field verify unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// What came back from the step.

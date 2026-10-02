@@ -115,6 +115,20 @@ fn renames_apply_and_survive_resume() -> Result<(), SessionError> {
         Origin::Ui,
     )?;
     assert_eq!(out.step.observation.summary, "renamed decode → xor_decode");
+    assert_eq!(out.step.command.as_deref(), Some("ren decode xor_decode"));
+    let by_addr = ws.run(
+        &store,
+        Op::Disasm {
+            target: "0x11d9".into(),
+        },
+        None,
+        Origin::Ui,
+    )?;
+    assert_eq!(
+        by_addr.step.command.as_deref(),
+        Some("dis check_password"),
+        "commands use names"
+    );
     let dis = ws.run(
         &store,
         Op::Disasm {

@@ -27,10 +27,12 @@ pub fn label(step: &Step) -> String {
             return cmd.clone();
         }
     }
-    let target = step
-        .target
-        .as_ref()
-        .and_then(|t| t.func.clone().or_else(|| t.addr.clone()));
+    let target = step.target.as_ref().and_then(|t| {
+        t.name
+            .clone()
+            .or_else(|| t.func.clone())
+            .or_else(|| t.addr.clone())
+    });
     match target {
         Some(t) => format!("{kind} {t}"),
         None => kind,

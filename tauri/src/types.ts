@@ -104,6 +104,18 @@ export interface Instruction {
   comment: string | null;
 }
 
+export interface BlockEdge {
+  to: number;
+  kind: "taken" | "fall" | "jump";
+}
+export interface BasicBlock {
+  addr: number;
+  end: number;
+  first: number;
+  count: number;
+  succs: BlockEdge[];
+}
+
 export interface StringRef {
   addr: number;
   mapped: boolean;

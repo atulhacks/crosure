@@ -26,6 +26,32 @@ for browser previews.
 
 ---
 
+## Engine decision (Oct 2026, after running both side by side)
+
+We built and ran Recurse locally on the same benign crackme and compared its
+engine with ours.
+
+| Check | Recurse engine | Crosure native engine |
+| --- | --- | --- |
+| Functions that begin with `endbr64` (GCC default on modern Linux) | Split in two: `check_password` reported as **4 bytes**, body becomes a fake `fcn_11dd` (also `fcn_118d`, `fcn_122b`) | Correct |
+| PLT import stubs | `fcn_1090` | `strcmp@plt` |
+| Disassembly annotations | Raw call targets | Callee names and string literals inline |
+| Decompiler | Register-level pseudo-C: `__asm("...")` lines, calls as `call(0x1070)`, strings as `&[rip+0xdb8]` | None yet |
+| Breadth (CFG, call graph, DWARF/PDB, debugger, capa, many archs) | Much wider | Narrower (CFG added now) |
+
+**Decision:** keep Crosure's own engine as the core and close the gap:
+1. Done: a native basic-block CFG (Linear and Graph views).
+2. Next: a **rizin + rz-ghidra** backend behind the same `Engine` trait, for
+   real Ghidra-quality decompilation, the same way Recurse treats r2/IDA as
+   optional backends.
+
+Not adopted: Recurse's `recurse-static` as a dependency. It isn't on
+crates.io (it would be a git dependency on a competitor's repo), its function
+discovery is wrong on standard binaries, its decompiler wouldn't improve
+ours much, and it would blur what is original in Crosure.
+
+---
+
 ## 1. What Recurse actually is (and what it is not)
 
 We studied `Recurse-Labs/recurse` (commit `60a6741`, Oct 2026, ~65k LOC,

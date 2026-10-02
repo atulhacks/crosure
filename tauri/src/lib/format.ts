@@ -25,29 +25,38 @@ export function shortHash(h: string, n = 10): string {
   return h.replace(/^sha256:/, "").slice(0, n);
 }
 
-/** Accent colour (CSS) for each step kind on the canvas. */
+/** Dot colour (a theme variable) for each step kind. */
 export const KIND_COLOR: Record<StepKind, string> = {
-  load: "#64748b",
-  recon: "#64748b",
-  navigate: "#94a3b8",
-  functions: "#94a3b8",
-  disasm: "#38bdf8",
-  decompile: "#22d3ee",
-  xref: "#a78bfa",
-  strings: "#facc15",
-  imports: "#fb923c",
-  rename: "#4ade80",
-  comment: "#4ade80",
-  patch: "#f472b6",
-  debug: "#f472b6",
-  sandbox: "#f472b6",
-  shell: "#94a3b8",
-  agent: "#e879f9",
-  hypothesis: "#fbbf24",
-  finding: "#f43f5e",
-  verdict: "#ef4444",
-  annotate: "#64748b",
+  load: "var(--kind-neutral)",
+  recon: "var(--kind-neutral)",
+  navigate: "var(--kind-neutral)",
+  functions: "var(--kind-neutral)",
+  disasm: "var(--kind-code)",
+  decompile: "var(--kind-code)",
+  xref: "var(--kind-xref)",
+  strings: "var(--kind-data)",
+  imports: "var(--kind-import)",
+  rename: "var(--kind-edit)",
+  comment: "var(--kind-edit)",
+  patch: "var(--kind-edit)",
+  debug: "var(--kind-code)",
+  sandbox: "var(--kind-import)",
+  shell: "var(--kind-neutral)",
+  agent: "var(--kind-agent)",
+  hypothesis: "var(--kind-hypothesis)",
+  finding: "var(--kind-finding)",
+  verdict: "var(--kind-finding)",
+  annotate: "var(--kind-neutral)",
 };
+
+/**
+ * Time since the session started, as `m:ss`.
+ * @example clock(65_000) // "1:05"
+ */
+export function clock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 /** One-click intent chips offered after each step. */
 export const INTENT_CHIPS: { id: string; label: string }[] = [
@@ -63,4 +72,4 @@ export const INTENT_CHIPS: { id: string; label: string }[] = [
 export const TAGS = ["lead", "dead_end", "key_step"] as const;
 
 /** Canvas node box size (shared by the layout and the node component). */
-export const NODE_SIZE = { w: 230, h: 68 };
+export const NODE_SIZE = { w: 240, h: 58 };

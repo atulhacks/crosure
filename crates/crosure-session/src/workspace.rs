@@ -153,6 +153,37 @@ impl Workspace {
             func,
             func_fp: None,
             section,
+            name: self.display_name(addr),
+        }
+    }
+
+    /// A string literal starting exactly at `addr`, quoted and shortened.
+    pub(crate) fn string_at(&self, addr: u64) -> Option<String> {
+        let s = self
+            .engine
+            .strings(4)
+            .ok()?
+            .into_iter()
+            .find(|s| s.mapped && s.addr == addr)?;
+        let mut v: String = s.value.chars().take(40).collect();
+        if s.value.chars().count() > 40 {
+            v.push('…');
+        }
+        Some(format!("\"{v}\""))
+    }
+
+    /// What a person would call `addr`: a function/import name or a string literal.
+    pub(crate) fn display_name(&self, addr: u64) -> Option<String> {
+        self.name_of(addr).or_else(|| self.string_at(addr))
+    }
+
+    /// The target to write in a recorded command: a symbol name when `addr` is
+    /// exactly a named function or import, otherwise hex. Keeps commands
+    /// replayable on the console and readable in datasets.
+    pub(crate) fn canonical_target(&self, addr: u64) -> String {
+        match self.name_of(addr) {
+            Some(n) if !n.contains(['+', ' ', '"']) && self.resolve(&n).ok() == Some(addr) => n,
+            _ => format!("{addr:#x}"),
         }
     }
 

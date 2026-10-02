@@ -1,38 +1,88 @@
-import { CenterPanel } from "./components/CenterPanel";
-import { Console } from "./components/Console";
-import { ErrorToast } from "./components/ErrorToast";
-import { FunctionList } from "./components/FunctionList";
-import { InvestigationCanvas } from "./components/InvestigationCanvas";
-import { NodeInspector } from "./components/NodeInspector";
-import { Timeline } from "./components/Timeline";
-import { TopBar } from "./components/TopBar";
-import { Welcome } from "./components/Welcome";
+import { useEffect } from "react";
+import { CommandPalette } from "./components/shell/CommandPalette";
+import { ErrorToast } from "./components/shell/ErrorToast";
+import { StatusBar } from "./components/shell/StatusBar";
+import { TitleBar } from "./components/shell/TitleBar";
+import { Welcome } from "./components/shell/Welcome";
+import { InvestigationPanel } from "./components/investigation/InvestigationPanel";
+import { Resizer } from "./components/ui/Resizer";
+import { CenterPanel } from "./components/workbench/CenterPanel";
+import { Console } from "./components/workbench/Console";
+import { FunctionList } from "./components/workbench/FunctionList";
+import { applyTheme, useUi } from "./store/ui";
 import { useWorkbench } from "./store/workbench";
 
-/** Root layout: functions | view + console | investigation canvas + inspector. */
-export default function App() {
-  const opened = useWorkbench((s) => s.opened);
+/** Workspace: functions | results + console | investigation. Every column resizes. */
+function Workspace() {
+  const { panes, setPane, consoleOpen } = useUi();
   return (
-    <div className="flex h-full flex-col">
-      <TopBar />
-      {opened ? (
-        <>
-          <div className="grid min-h-0 flex-1 grid-cols-[250px_minmax(0,1fr)_460px]">
-            <FunctionList />
-            <div className="flex min-h-0 flex-col border-x border-line">
-              <CenterPanel />
+    <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 shrink-0 border-r" style={{ width: panes.left }}>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <FunctionList />
+        </div>
+      </div>
+      <Resizer
+        axis="x"
+        start={panes.left}
+        onResize={(px) => setPane("left", px)}
+        onEnd={(px) => setPane("left", px, true)}
+      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <CenterPanel />
+        {consoleOpen && (
+          <>
+            <Resizer
+              axis="y"
+              invert
+              start={panes.console}
+              onResize={(px) => setPane("console", px)}
+              onEnd={(px) => setPane("console", px, true)}
+            />
+            <div className="shrink-0" style={{ height: panes.console }}>
               <Console />
             </div>
-            <div className="flex min-h-0 flex-col">
-              <InvestigationCanvas />
-              <NodeInspector />
-            </div>
-          </div>
-          <Timeline />
-        </>
-      ) : (
-        <Welcome />
-      )}
+          </>
+        )}
+      </div>
+      <Resizer
+        axis="x"
+        invert
+        start={panes.right}
+        onResize={(px) => setPane("right", px)}
+        onEnd={(px) => setPane("right", px, true)}
+      />
+      <div className="flex min-h-0 shrink-0 border-l" style={{ width: panes.right }}>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <InvestigationPanel />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Root: title bar, workspace (or welcome), status bar, overlays. */
+export default function App() {
+  const opened = useWorkbench((s) => s.opened);
+  const theme = useUi((s) => s.theme);
+  const toggleConsole = useUi((s) => s.toggleConsole);
+  useEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "`") {
+        e.preventDefault();
+        toggleConsole();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleConsole]);
+  return (
+    <div className="flex h-full flex-col">
+      <TitleBar />
+      {opened ? <Workspace /> : <Welcome />}
+      <StatusBar />
+      <CommandPalette />
       <ErrorToast />
     </div>
   );

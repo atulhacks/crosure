@@ -22,6 +22,9 @@ Built for Innoventure 4.0 (Amity University). Full plan: [docs/PLAN.md](docs/PLA
   - what it targeted,
   - a summary of what it showed,
   - the full result stored by content hash.
+- **Native control-flow graph:** each function splits into basic blocks with
+  taken / not-taken / jump edges. Switch Disassembly between **Linear** and
+  **Graph**.
 - **Investigation canvas** (React Flow). The graph grows live and edges are typed:
   - `next`: time order;
   - `derived_from`: you clicked something in a previous result;
@@ -35,10 +38,35 @@ Built for Innoventure 4.0 (Amity University). Full plan: [docs/PLAN.md](docs/PLA
   verify badge re-derives the whole chain. Edit any stored step and it turns red:
 
   ![Tamper detected](docs/media/tampered.png)
-- **Replay.** A timeline scrubber shows the graph as it was after any step.
+- **Replay and flight log.** A scrubber shows the graph as it was after any
+  step, and a **Log** view lists every step in time order with its command
+  (`dis check_password`, `xt strcmp@plt`), outcome, intent and tags.
+- **IDE shell:**
+  - resizable panes;
+  - tabbed results, where each tab links back to the step that produced it;
+  - a status bar;
+  - a **Ctrl+K** command palette (go to a function, run an action or a console command);
+  - a console toggle (Ctrl+\`);
+  - dark and light themes.
+
+  ![Flight log](docs/media/flight-log.png)
 - **Export.** Writes the session (steps, graph, verification) to `~/.crosure/exports/*.json`.
 - **Sessions persist** in SQLite (`~/.crosure/crosure.db`) and can be resumed.
   Renames are replayed from the log.
+
+## Design
+
+Crosure's look is a quiet IDE with one accent colour, *recorder amber*. It is
+used only for recording, the key path and focus. The rules:
+
+- **Colour carries meaning.** All colours are theme tokens in `tauri/src/theme.css`:
+  - a desaturated disassembly palette;
+  - one dot colour per step kind;
+  - green and red for taken and not taken.
+- **Type and size.**
+  - A type scale of 10/11/12/13 px, with tabular numbers in every column.
+  - Inter and JetBrains Mono are bundled, so the desktop app renders the same offline.
+  - One `Pane` primitive gives every docked surface the same header, count and spacing.
 
 ## Layout
 
