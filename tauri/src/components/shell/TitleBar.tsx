@@ -1,4 +1,4 @@
-import { Download, Moon, Search, ShieldAlert, ShieldCheck, Sun } from "lucide-react";
+import { Download, Moon, Search, ShieldAlert, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { useState } from "react";
 import { shortHash } from "../../lib/format";
 import { useUi } from "../../store/ui";
@@ -16,7 +16,7 @@ export function TitleBar() {
   const verify = useWorkbench((s) => s.verify);
   const exportSession = useWorkbench((s) => s.exportSession);
   const close = useWorkbench((s) => s.close);
-  const { theme, setTheme, setPaletteOpen } = useUi();
+  const { theme, setTheme, setPaletteOpen, setDockTab } = useUi();
   const [exported, setExported] = useState<string | null>(null);
 
   return (
@@ -63,6 +63,15 @@ export function TitleBar() {
             <span className={`h-1.5 w-1.5 rounded-full bg-brand ${replaying ? "" : "rec-dot"}`} />
             {replaying ? "REPLAY" : "REC"} <span className="nums text-muted">{steps}</span>
           </span>
+        )}
+        {opened && (
+          <Button
+            variant="ghost"
+            onClick={() => setDockTab("agent")}
+            title="Ask the AI agent (Ctrl+L)"
+          >
+            <Sparkles size={13} className="text-brand" /> Ask AI
+          </Button>
         )}
         {opened && report && (
           <Button

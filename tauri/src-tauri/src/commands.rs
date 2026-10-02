@@ -88,3 +88,37 @@ pub fn export_session(state: State<'_, AppState>) -> Res<String> {
 pub fn step_outcome(state: State<'_, AppState>, step_id: String) -> Res<Outcome> {
     core::step_outcome(&state, step_id)
 }
+
+/// Agent setup status.
+#[tauri::command]
+pub fn agent_status(state: State<'_, AppState>) -> crate::agent::AgentStatus {
+    core::agent_status(&state)
+}
+
+/// Saves an API key and/or model.
+#[tauri::command]
+pub fn agent_configure(
+    state: State<'_, AppState>,
+    api_key: Option<String>,
+    model: Option<String>,
+) -> Res<crate::agent::AgentStatus> {
+    core::agent_configure(&state, api_key, model)
+}
+
+/// Starts the agent.
+#[tauri::command]
+pub fn agent_start(state: State<'_, AppState>, prompt: String) -> Res<()> {
+    core::agent_start(&state, prompt)
+}
+
+/// Agent events since a cursor.
+#[tauri::command]
+pub fn agent_events(state: State<'_, AppState>, since: usize) -> crate::agent::EventPage {
+    core::agent_events(&state, since)
+}
+
+/// Stops the agent.
+#[tauri::command]
+pub fn agent_stop(state: State<'_, AppState>) {
+    core::agent_stop(&state)
+}

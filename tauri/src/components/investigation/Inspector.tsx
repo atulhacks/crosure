@@ -56,6 +56,15 @@ export function Inspector() {
             in {node.target.func} · {node.target.addr}
           </div>
         )}
+        <div className="mt-1.5 text-2xs text-faint">
+          {node.actor === "agent" ? "Taken by the AI agent" : "Taken by you"} ·{" "}
+          {new Date(node.ts_ms).toLocaleTimeString()}
+        </div>
+        {node.intent?.note && (
+          <blockquote className="mt-1.5 border-l-2 border-[var(--kind-agent)]/50 pl-2 text-xs text-muted">
+            {node.intent.note}
+          </blockquote>
+        )}
       </div>
 
       {branchFrom === node.id && (

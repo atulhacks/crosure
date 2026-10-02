@@ -39,10 +39,19 @@ export function FlightLog() {
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate font-mono text-xs text-fg">{n.command ?? n.label}</span>
-              {n.actor === "agent" && <Bot size={11} />}
+              {n.actor === "agent" && (
+                <span className="flex shrink-0 items-center gap-0.5 rounded-sm px-1 text-2xs font-semibold text-[var(--kind-agent)]">
+                  <Bot size={10} /> AI
+                </span>
+              )}
               <span className="ml-auto font-mono text-2xs text-faint nums">#{n.seq}</span>
             </span>
             <span className="block truncate text-2xs text-muted">{n.summary}</span>
+            {n.intent?.note && (
+              <span className="block truncate text-2xs text-faint italic">
+                why: {n.intent.note}
+              </span>
+            )}
             {(n.intent?.chip || n.tags.length > 0) && (
               <span className="mt-1 flex gap-1">
                 {n.intent?.chip && <Pill tone="brand">{n.intent.chip.replace(/_/g, " ")}</Pill>}

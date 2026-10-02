@@ -1,5 +1,5 @@
 use crosure_engine::{Instruction, Xref};
-use crosure_recorder::{NewStep, Observation, ParentRef, Step, Store, Target};
+use crosure_recorder::{Intent, NewStep, Observation, ParentRef, Step, Store, Target};
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -11,6 +11,15 @@ use crate::{Op, Origin, SessionError, Workspace};
 pub struct Outcome {
     pub step: Step,
     pub result: Value,
+}
+
+/// Who a step is attributed to beyond its origin: the model and the stated reason.
+#[derive(Clone, Debug, Default)]
+pub struct Author {
+    /// Model id, for agent steps.
+    pub model: Option<String>,
+    /// Why the step was taken.
+    pub intent: Option<Intent>,
 }
 
 struct Done {
@@ -35,6 +44,18 @@ impl Workspace {
         parent: Option<ParentRef>,
         origin: Origin,
     ) -> Result<Outcome, SessionError> {
+        self.run_as(store, op, parent, origin, Author::default())
+    }
+
+    /// Like [`Workspace::run`], with the step's intent and (for agents) model recorded.
+    pub fn run_as(
+        &mut self,
+        store: &Store,
+        op: Op,
+        parent: Option<ParentRef>,
+        origin: Origin,
+        author: Author,
+    ) -> Result<Outcome, SessionError> {
         let done = self.execute(&op)?;
         let op = match (done.addr, &op) {
             // A rename is recorded against the name the function had before it.
@@ -49,13 +70,16 @@ impl Workspace {
         if let (Value::Object(map), Some(a)) = (&mut action, done.addr) {
             map.insert("addr".into(), json!(a));
         }
-        let mut step = NewStep::human(
-            op.kind(),
-            match origin {
-                Origin::Ui => "crosure",
-                Origin::Console => "console",
-            },
-        );
+        let mut step = match origin {
+            Origin::Ui => NewStep::human(op.kind(), "crosure"),
+            Origin::Console => NewStep::human(op.kind(), "console"),
+            Origin::Agent => NewStep::agent(
+                op.kind(),
+                "agent",
+                author.model.as_deref().unwrap_or("unknown"),
+            ),
+        };
+        step.intent = author.intent;
         step.parents = parent.into_iter().collect();
         step.command = Some(op.command());
         step.action = action;
@@ -108,6 +132,26 @@ impl Workspace {
                     info.sections.len()
                 );
                 simple(s, serde_json::to_value(info)?)
+            }
+            Op::Functions { filter } => {
+                let needle = filter.as_ref().map(|f| f.to_lowercase());
+                let fs: Vec<_> = self
+                    .functions()?
+                    .into_iter()
+                    .filter(|f| {
+                        needle
+                            .as_ref()
+                            .is_none_or(|n| f.name.to_lowercase().contains(n))
+                    })
+                    .collect();
+                let names: Vec<String> = fs.iter().map(|f| f.name.clone()).collect();
+                let what = filter
+                    .as_ref()
+                    .map_or(String::new(), |f| format!(" matching {f:?}"));
+                simple(
+                    format!("{} functions{what}: {}", fs.len(), summary::list(&names, 5)),
+                    json!({ "functions": fs.into_iter().take(2000).collect::<Vec<_>>() }),
+                )
             }
             Op::Disasm { target } => {
                 let addr = self.resolve(target)?;

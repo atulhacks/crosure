@@ -3,6 +3,7 @@ use crate::{Op, SessionError};
 /// Help text for the built-in console.
 pub const CONSOLE_HELP: &str = "\
 info                         binary info
+fns [filter]                 list functions
 dis <fn|addr>                disassemble function
 xt <fn|addr>                 xrefs to
 xf <fn|addr>                 xrefs from function
@@ -46,6 +47,12 @@ pub fn parse_command(line: &str) -> Result<Op, SessionError> {
     };
     Ok(match *cmd {
         "info" | "i" => Op::Info,
+        "fns" | "afl" => Op::Functions {
+            filter: parts
+                .get(1..)
+                .map(|p| p.join(" "))
+                .filter(|s| !s.is_empty()),
+        },
         "dis" | "pdf" => Op::Disasm {
             target: arg(&parts, 1, line)?,
         },

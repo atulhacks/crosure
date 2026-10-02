@@ -38,7 +38,11 @@ export function StepNode({ data }: NodeProps) {
         />
         <span className="font-semibold tracking-wider text-muted uppercase">{node.kind}</span>
         <span className="font-mono text-faint nums">#{node.seq}</span>
-        {node.actor === "agent" && <Bot size={11} className="text-[var(--kind-agent)]" />}
+        {node.actor === "agent" && (
+          <span className="flex items-center gap-0.5 rounded-sm bg-[var(--kind-agent)]/15 px-1 font-semibold text-[var(--kind-agent)]">
+            <Bot size={10} /> AI
+          </span>
+        )}
         {branchFrom && <GitBranch size={11} className="ml-auto text-brand" />}
         {key && !branchFrom && (
           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand" title="Key step" />
