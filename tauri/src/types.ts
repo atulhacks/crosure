@@ -247,6 +247,15 @@ export type Op =
 
 export type KeySource = "saved" | "env" | "not_needed" | "missing";
 
+/** A provider whose key was found in an environment variable. */
+export interface DetectedProvider {
+  id: string;
+  label: string;
+  /** Empty when a model still has to be picked. */
+  model: string;
+  key_env: string;
+}
+
 export interface AgentStatus {
   configured: boolean;
   demo: boolean;
@@ -258,6 +267,8 @@ export interface AgentStatus {
   key_env: string | null;
   /** No provider chosen yet (nothing saved). */
   first_run: boolean;
+  /** On first run: providers whose key is already in the environment. */
+  detected: DetectedProvider[];
   fallbacks: number;
   running: boolean;
 }

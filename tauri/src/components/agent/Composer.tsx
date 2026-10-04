@@ -58,7 +58,7 @@ export function Composer() {
   const box = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     api.agentSettings().then(
-      (v) => setProviders(v.providers.filter((p) => p.enabled)),
+      (v) => setProviders(v.providers.filter((p) => p.ready)),
       () => setProviders([]),
     );
   }, [status?.provider]);
@@ -185,12 +185,11 @@ export function Composer() {
             className="h-6 max-w-44 truncate rounded-md bg-transparent px-1 font-mono text-2xs text-muted outline-none hover:bg-hover hover:text-fg"
           >
             {providers.map((p) => (
-              <option key={p.id} value={p.id} disabled={!p.ready}>
+              <option key={p.id} value={p.id}>
                 {p.label} · {p.model}
-                {p.ready ? "" : " (needs key)"}
               </option>
             ))}
-            <option value={MANAGE}>Add or manage models…</option>
+            <option value={MANAGE}>Configure models…</option>
           </select>
         )}
         {status?.demo && <span className="px-1 font-mono text-2xs text-faint">scripted demo</span>}

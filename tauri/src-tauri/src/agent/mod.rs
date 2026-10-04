@@ -4,6 +4,7 @@
 mod approval;
 mod mention;
 mod run;
+mod setup;
 #[cfg(test)]
 mod tests;
 mod threads;
@@ -37,6 +38,8 @@ pub struct AgentStatus {
     /// No settings saved yet: the analyst has not chosen a provider, even if
     /// a key found in the environment would make the default one work.
     pub first_run: bool,
+    /// On first run: providers whose key is already in the environment.
+    pub detected: Vec<setup::Detected>,
     /// How many providers are ready to take over after a decline.
     pub fallbacks: usize,
     pub running: bool,
@@ -146,10 +149,12 @@ impl AgentRuntime {
                 key_source: None,
                 key_env: None,
                 first_run: false,
+                detected: Vec::new(),
                 fallbacks: 0,
                 running,
             };
         }
+        let first_run = !self.path.exists();
         let s = self.snapshot();
         let active = s.providers.iter().find(|p| p.id == s.active);
         let fallbacks = if s.auto_fallback {
@@ -168,7 +173,12 @@ impl AgentRuntime {
             model: active.map(|p| p.model.clone()).unwrap_or_default(),
             key_source: active.map(|p| p.key().1),
             key_env: active.map(ProviderConfig::key_env_name),
-            first_run: !self.path.exists(),
+            first_run,
+            detected: if first_run {
+                setup::detected(&s)
+            } else {
+                Vec::new()
+            },
             fallbacks,
             running,
         }
@@ -237,7 +247,7 @@ impl AgentRuntime {
     pub fn set_active(&self, id: &str) -> Result<AgentStatus, String> {
         {
             let mut s = self.settings.lock().map_err(|_| "settings lock poisoned")?;
-            if !s.providers.iter().any(|p| p.id == id) {
+            if !setup::adopt(&mut s, id) {
                 return Err(format!("unknown provider `{id}`"));
             }
             s.active = id.into();
