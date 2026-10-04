@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::arm64::AdrpTracker;
 use super::disasm::{base_mnemonic, capstone_for, decode};
 use super::load::Loaded;
 use crate::operand::{immediates, is_call, is_jump, parse_branch_target, parse_rip_relative};
@@ -56,6 +57,9 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
         let insns = decode(&cs, &data[start..end], sec.addr, usize::MAX)?;
         let mut stub_start: Option<u64> = Some(sec.addr);
         let mut pad_start: Option<u64> = None;
+        let mut adrp = AdrpTracker::default();
+        let arm64 = info.arch == "aarch64";
+        let plt = sec.name.starts_with(".plt");
         for insn in &insns {
             let m = base_mnemonic(&insn.mnemonic);
             let next_ip = insn.addr + (insn.bytes.len() / 2) as u64;
@@ -65,16 +69,30 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
             } else {
                 pad_start = None;
             }
+            let paired = if arm64 {
+                adrp.step(m, &insn.operands)
+            } else {
+                None
+            };
             visit(
                 &mut sw,
                 l,
-                insn.addr,
-                m,
-                &insn.operands,
-                next_ip,
+                Insn {
+                    from: insn.addr,
+                    m,
+                    ops: &insn.operands,
+                    next_ip,
+                    paired,
+                    plt,
+                },
                 stub_start,
             );
-            stub_start = stub_boundary(m, insn.addr, next_ip);
+            // An AArch64 stub starts with the `adrp` of its slot's page.
+            stub_start = stub_boundary(m, insn.addr, next_ip).or(if m == "adrp" {
+                stub_start
+            } else {
+                None
+            });
         }
     }
     Ok(finish(sw, l))
@@ -86,23 +104,31 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
 fn stub_boundary(m: &str, addr: u64, next_ip: u64) -> Option<u64> {
     if m.starts_with("endbr") {
         Some(addr)
-    } else if matches!(m, "ret" | "jmp" | "int3" | "nop" | "ud2" | "hlt") {
+    } else if matches!(
+        m,
+        "ret" | "jmp" | "int3" | "nop" | "ud2" | "hlt" | "br" | "b"
+    ) {
         Some(next_ip)
     } else {
         None
     }
 }
 
-fn visit(
-    sw: &mut Sweep,
-    l: &Loaded,
+/// One decoded instruction, as the sweep sees it.
+struct Insn<'a> {
     from: u64,
-    m: &str,
-    ops: &str,
+    m: &'a str,
+    ops: &'a str,
     next_ip: u64,
-    stub_start: Option<u64>,
-) {
+    /// AArch64: the address an earlier `adrp` makes this instruction refer to.
+    paired: Option<u64>,
+    /// The instruction is in a `.plt*` section.
+    plt: bool,
+}
+
+fn visit(sw: &mut Sweep, l: &Loaded, i: Insn<'_>, stub_start: Option<u64>) {
     let sections = &l.info.sections;
+    let (from, m) = (i.from, i.m);
     let branch_kind = if is_call(m) {
         Some(XrefKind::Call)
     } else if is_jump(m) {
@@ -110,7 +136,7 @@ fn visit(
     } else {
         None
     };
-    if let (Some(kind), Some(t)) = (branch_kind, parse_branch_target(ops)) {
+    if let (Some(kind), Some(t)) = (branch_kind, parse_branch_target(i.ops)) {
         sw.xrefs.push(Xref {
             from,
             to: t,
@@ -122,13 +148,18 @@ fn visit(
         }
         return;
     }
-    let memory: Vec<u64> = if l.info.arch == "x86_64" {
-        parse_rip_relative(ops, next_ip).into_iter().collect()
-    } else {
-        immediates(ops)
+    let memory: Vec<u64> = match l.info.arch.as_str() {
+        "x86_64" => parse_rip_relative(i.ops, i.next_ip).into_iter().collect(),
+        // Immediates on AArch64 are pages and offsets; only paired ones count.
+        "aarch64" => i
+            .paired
+            .filter(|t| mapped(sections, *t))
+            .into_iter()
+            .collect(),
+        _ => immediates(i.ops)
             .into_iter()
             .filter(|t| mapped(sections, *t))
-            .collect()
+            .collect(),
     };
     for t in memory {
         let slot = l.import_slots.get(&t);
@@ -136,10 +167,13 @@ fn visit(
             (Some(k), _) => k,
             _ => XrefKind::Data,
         };
-        if let (Some(XrefKind::Jump), Some(name), Some(start)) = (branch_kind, slot, stub_start) {
+        // x86: `jmp [slot]`. AArch64 PLT: `ldr x17, [x16, #slot]` then `br x17`.
+        let loads_slot = branch_kind == Some(XrefKind::Jump) || (i.plt && m.starts_with("ldr"));
+        if let (true, Some(name), Some(start)) = (loads_slot, slot, stub_start) {
             sw.stubs.insert(start, name.clone());
         }
-        if kind == XrefKind::Data && m == "lea" && exec_contains(sections, t).is_some() {
+        let address_of = m == "lea" || (m == "add" && i.paired.is_some());
+        if kind == XrefKind::Data && address_of && exec_contains(sections, t).is_some() {
             sw.code_pointers.insert(t);
         }
         sw.xrefs.push(Xref {

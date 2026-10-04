@@ -1,3 +1,4 @@
+mod arm64;
 mod disasm;
 mod load;
 mod pe;
@@ -69,6 +70,12 @@ impl NativeEngine {
         let info = &self.loaded.info;
         let cs = disasm::capstone_for(&info.arch, info.bits)?;
         let mut insns = disasm::decode(&cs, self.slice(addr, len)?, addr, limit)?;
+        if info.arch == "aarch64" {
+            let mut adrp = arm64::AdrpTracker::default();
+            for insn in &mut insns {
+                insn.target = adrp.step(&insn.mnemonic, &insn.operands);
+            }
+        }
         for insn in &mut insns {
             self.annotate(insn);
         }
@@ -78,11 +85,17 @@ impl NativeEngine {
     /// Fills `target` and a human-readable `comment` (callee name or string).
     fn annotate(&self, insn: &mut Instruction) {
         let next_ip = insn.addr + (insn.bytes.len() / 2) as u64;
-        let target = parse_branch_target(&insn.operands)
+        // On AArch64 an immediate is a page or an offset, never an address:
+        // `decode` already resolved adrp pairs into `target`.
+        let arm = self.loaded.info.arch == "aarch64";
+        let target = insn
+            .target
+            .or_else(|| parse_branch_target(&insn.operands))
             .or_else(|| parse_rip_relative(&insn.operands, next_ip))
             .or_else(|| {
                 immediates(&insn.operands)
                     .into_iter()
+                    .filter(|_| !arm)
                     .find(|t| self.analysis.names.contains_key(t) || self.string_at.contains_key(t))
             });
         insn.target = target;
