@@ -8,37 +8,37 @@ use crate::core::{self, Opened, Res};
 use crate::AppState;
 
 /// Opens a binary and starts a new recorded session.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_binary(state: State<'_, AppState>, path: String) -> Res<Opened> {
     core::open_binary(&state, path)
 }
 
 /// Every recorded session, newest first.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_sessions(state: State<'_, AppState>) -> Res<Vec<Session>> {
     core::list_sessions(&state)
 }
 
 /// Reopens a recorded session.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resume_session(state: State<'_, AppState>, id: String) -> Res<Opened> {
     core::resume_session(&state, id)
 }
 
 /// Functions of the open binary.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn functions(state: State<'_, AppState>) -> Res<Vec<FunctionInfo>> {
     core::functions(&state)
 }
 
 /// Runs and records a UI op.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn run_op(state: State<'_, AppState>, op: Op, parent: Option<ParentRef>) -> Res<Outcome> {
     core::run_op(&state, op, parent)
 }
 
 /// Runs and records a console line.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn run_console(
     state: State<'_, AppState>,
     line: String,
@@ -48,13 +48,13 @@ pub fn run_console(
 }
 
 /// Console help text.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn console_help() -> String {
     core::console_help()
 }
 
 /// Adds intent/tags to a step.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn annotate(
     state: State<'_, AppState>,
     step_id: String,
@@ -66,55 +66,55 @@ pub fn annotate(
 }
 
 /// The investigation graph.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn graph(state: State<'_, AppState>, upto: Option<u64>) -> Res<InvestigationGraph> {
     core::graph(&state, upto)
 }
 
 /// Verifies the hash chain.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn verify(state: State<'_, AppState>) -> Res<VerifyReport> {
     core::verify(&state)
 }
 
 /// Exports the session as JSON.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_session(state: State<'_, AppState>) -> Res<String> {
     core::export_session(&state)
 }
 
 /// Whether decompilation is available.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn decompiler_status() -> crosure_engine::DecompilerStatus {
     core::decompiler_status()
 }
 
 /// Exports every verified session as a training dataset.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_dataset(state: State<'_, AppState>) -> Res<core::DatasetExport> {
     core::export_dataset(&state)
 }
 
 /// Revisits an earlier step's result.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn step_outcome(state: State<'_, AppState>, step_id: String) -> Res<Outcome> {
     core::step_outcome(&state, step_id)
 }
 
 /// Agent dock status.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_status(state: State<'_, AppState>) -> crate::agent::AgentStatus {
     core::agent_status(&state)
 }
 
 /// Provider settings.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_settings(state: State<'_, AppState>) -> crate::agent::SettingsView {
     core::agent_settings(&state)
 }
 
 /// Saves provider settings.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_save_settings(
     state: State<'_, AppState>,
     settings: crosure_agent::AgentSettings,
@@ -123,7 +123,7 @@ pub fn agent_save_settings(
 }
 
 /// Lists a provider's models.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_list_models(
     state: State<'_, AppState>,
     provider: crosure_agent::ProviderConfig,
@@ -132,7 +132,7 @@ pub fn agent_list_models(
 }
 
 /// Sends a prompt to the agent.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_start(
     state: State<'_, AppState>,
     prompt: String,
@@ -142,37 +142,37 @@ pub fn agent_start(
 }
 
 /// Agent threads of the open session.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_threads(state: State<'_, AppState>) -> Res<crate::agent::ThreadList> {
     core::agent_threads(&state)
 }
 
 /// Shows a thread (or a fresh one).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_open_thread(state: State<'_, AppState>, id: Option<String>) -> Res<()> {
     core::agent_open_thread(&state, id)
 }
 
 /// Answers a pending approval.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_decide(state: State<'_, AppState>, id: String, allow: bool) -> Res<()> {
     core::agent_decide(&state, id, allow)
 }
 
 /// Switches the active provider.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_set_active(state: State<'_, AppState>, id: String) -> Res<crate::agent::AgentStatus> {
     core::agent_set_active(&state, id)
 }
 
 /// Agent events since a cursor.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_events(state: State<'_, AppState>, since: usize) -> crate::agent::EventPage {
     core::agent_events(&state, since)
 }
 
 /// Stops the agent.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn agent_stop(state: State<'_, AppState>) {
     core::agent_stop(&state)
 }

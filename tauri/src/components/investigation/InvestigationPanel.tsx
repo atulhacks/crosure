@@ -4,6 +4,7 @@ import { useAgent } from "../../store/agent";
 import { useUi } from "../../store/ui";
 import { useWorkbench } from "../../store/workbench";
 import { AgentPanel } from "../agent/AgentPanel";
+import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { Resizer } from "../ui/Resizer";
 import { Segmented } from "../ui/Segmented";
 import { FlightLog } from "./FlightLog";
@@ -51,7 +52,9 @@ export function InvestigationPanel() {
         </div>
       </header>
       <div className="min-h-0 flex-1 bg-bg">
-        {invMode === "graph" ? <InvestigationCanvas /> : <FlightLog />}
+        <ErrorBoundary key={invMode} name="Graph">
+          {invMode === "graph" ? <InvestigationCanvas /> : <FlightLog />}
+        </ErrorBoundary>
       </div>
       <Timeline />
       <Resizer
@@ -72,7 +75,11 @@ export function InvestigationPanel() {
           )}
           {tab("step", "Step")}
         </nav>
-        <div className="min-h-0 flex-1">{dockTab === "agent" ? <AgentPanel /> : <Inspector />}</div>
+        <div className="min-h-0 flex-1">
+          <ErrorBoundary key={dockTab} name={dockTab === "agent" ? "Agent" : "Step"}>
+            {dockTab === "agent" ? <AgentPanel /> : <Inspector />}
+          </ErrorBoundary>
+        </div>
       </div>
     </section>
   );

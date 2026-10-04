@@ -492,7 +492,7 @@ checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
 name = "crosure"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-agent",
  "crosure-dataset",
@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-agent"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-engine",
  "crosure-recorder",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-dataset"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-engine",
  "crosure-graph",
@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "capstone",
  "gimli",
@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-graph"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-recorder",
  "serde",
@@ -561,7 +561,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-agent",
  "crosure-recorder",
@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-recorder"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rusqlite",
  "serde",
@@ -584,7 +584,7 @@ dependencies = [
 
 [[package]]
 name = "crosure-session"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crosure-engine",
  "crosure-recorder",

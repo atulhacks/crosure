@@ -6,6 +6,7 @@ import { StatusBar } from "./components/shell/StatusBar";
 import { TitleBar } from "./components/shell/TitleBar";
 import { Welcome } from "./components/shell/Welcome";
 import { InvestigationPanel } from "./components/investigation/InvestigationPanel";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { Resizer } from "./components/ui/Resizer";
 import { CenterPanel } from "./components/workbench/CenterPanel";
 import { Console } from "./components/workbench/Console";
@@ -20,7 +21,9 @@ function Workspace() {
     <div className="flex min-h-0 flex-1">
       <div className="flex min-h-0 shrink-0 border-r" style={{ width: panes.left }}>
         <div className="flex min-w-0 flex-1 flex-col">
-          <FunctionList />
+          <ErrorBoundary name="Functions">
+            <FunctionList />
+          </ErrorBoundary>
         </div>
       </div>
       <Resizer
@@ -30,7 +33,9 @@ function Workspace() {
         onEnd={(px) => setPane("left", px, true)}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <CenterPanel />
+        <ErrorBoundary name="Results">
+          <CenterPanel />
+        </ErrorBoundary>
         {consoleOpen && (
           <>
             <Resizer
@@ -41,7 +46,9 @@ function Workspace() {
               onEnd={(px) => setPane("console", px, true)}
             />
             <div className="shrink-0" style={{ height: panes.console }}>
-              <Console />
+              <ErrorBoundary name="Console">
+                <Console />
+              </ErrorBoundary>
             </div>
           </>
         )}
@@ -55,7 +62,9 @@ function Workspace() {
       />
       <div className="flex min-h-0 shrink-0 border-l" style={{ width: panes.right }}>
         <div className="flex min-w-0 flex-1 flex-col">
-          <InvestigationPanel />
+          <ErrorBoundary name="Investigation">
+            <InvestigationPanel />
+          </ErrorBoundary>
         </div>
       </div>
     </div>
@@ -88,8 +97,12 @@ export default function App() {
       <TitleBar />
       {opened ? <Workspace /> : <Welcome />}
       <StatusBar />
-      <CommandPalette />
-      <AgentSettingsDialog />
+      <ErrorBoundary name="Command palette">
+        <CommandPalette />
+      </ErrorBoundary>
+      <ErrorBoundary name="AI settings">
+        <AgentSettingsDialog />
+      </ErrorBoundary>
       <ErrorToast />
     </div>
   );
