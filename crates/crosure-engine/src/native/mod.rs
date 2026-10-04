@@ -1,6 +1,8 @@
 mod arm32;
 mod arm64;
+mod boundary;
 mod disasm;
+mod jumptable;
 mod load;
 mod pe;
 mod strings;

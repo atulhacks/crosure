@@ -52,6 +52,8 @@ pub(crate) fn visit(sw: &mut Sweep, l: &Loaded, i: Insn<'_>, stub_start: Option<
         });
         if kind == XrefKind::Call {
             sw.call_targets.insert(t);
+        } else if !matches!(m, "jmp" | "b" | "b.w") {
+            sw.cond_targets.insert(t);
         }
         return;
     }

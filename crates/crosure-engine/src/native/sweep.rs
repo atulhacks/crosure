@@ -2,9 +2,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::arm32::Arm32Tracker;
 use super::arm64::AdrpTracker;
+use super::boundary::Boundaries;
 use super::disasm::{base_mnemonic, decode, decoder_for};
+use super::jumptable::{cases, TableFinder};
 use super::load::Loaded;
 use super::visit::{visit, Insn};
+use crate::operand::{is_call, parse_branch_target, parse_rip_relative};
 use crate::{EngineError, FunctionInfo, SectionInfo, Xref};
 
 /// Results of one linear sweep over every executable section.
@@ -23,6 +26,10 @@ pub(crate) struct Sweep {
     pub(crate) stubs: BTreeMap<u64, String>,
     /// Alignment padding runs (nop / int3), keyed by end address -> start.
     pub(crate) padding: BTreeMap<u64, u64>,
+    /// Targets of conditional branches (always inside a function).
+    pub(crate) cond_targets: BTreeSet<u64>,
+    /// Addresses after a terminator and padding (see `boundary.rs`).
+    pub(crate) boundaries: BTreeSet<u64>,
 }
 
 pub(crate) fn exec_contains(sections: &[SectionInfo], addr: u64) -> Option<&SectionInfo> {
@@ -42,7 +49,11 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
         code_pointers: BTreeSet::new(),
         stubs: BTreeMap::new(),
         padding: BTreeMap::new(),
+        cond_targets: BTreeSet::new(),
+        boundaries: BTreeSet::new(),
     };
+    let x86 = matches!(info.arch.as_str(), "x86_64" | "x86");
+    let mut found_tables = Vec::new();
     for sec in info.sections.iter().filter(|s| s.executable) {
         let Some(off) = sec.file_offset else { continue };
         let start = off as usize;
@@ -65,14 +76,38 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
         let thumb = l.thumb_in(&sec.name);
         let read = |a: u64| l.word(data, a);
         let plt = sec.name.starts_with(".plt");
+        let mut bounds = Boundaries::default();
+        let mut tables = TableFinder::default();
         for insn in &insns {
             let m = base_mnemonic(&insn.mnemonic);
             let next_ip = insn.addr + (insn.bytes.len() / 2) as u64;
-            if matches!(m, "nop" | "int3") {
+            let pad = matches!(m, "nop" | "int3");
+            if pad {
                 let start = *pad_start.get_or_insert(insn.addr);
                 sw.padding.insert(next_ip, start);
             } else {
                 pad_start = None;
+            }
+            let callee = is_call(m)
+                .then(|| {
+                    parse_branch_target(&insn.operands)
+                        .and_then(|t| sw.stubs.get(&t).or_else(|| l.symbols.get(&t).map(|s| &s.0)))
+                        .or_else(|| {
+                            parse_rip_relative(&insn.operands, next_ip)
+                                .and_then(|t| l.import_slots.get(&t))
+                        })
+                })
+                .flatten();
+            if !plt && x86 {
+                let rip = parse_rip_relative(&insn.operands, next_ip);
+                found_tables.extend(tables.step(m, &insn.operands, rip));
+                bounds.step(
+                    insn.addr,
+                    m,
+                    &insn.operands,
+                    pad,
+                    callee.map(String::as_str),
+                );
             }
             let paired = if arm64 {
                 adrp.step(m, &insn.operands)
@@ -109,6 +144,21 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
                     None
                 });
         }
+        sw.boundaries.extend(bounds.found);
+    }
+    // Switch cases are reached only through their table: mark them as
+    // inside a function so the boundary rule does not split it there.
+    let read = |a: u64, n: usize| {
+        let s = info
+            .sections
+            .iter()
+            .find(|s| a >= s.addr && a + n as u64 <= s.addr + s.size)?;
+        let at = usize::try_from(s.file_offset? + (a - s.addr)).ok()?;
+        data.get(at..at + n).map(<[u8]>::to_vec)
+    };
+    let is_code = |a: u64| exec_contains(&info.sections, a).is_some();
+    for t in found_tables {
+        sw.cond_targets.extend(cases(t, &read, &is_code));
     }
     Ok(finish(sw, l))
 }
@@ -153,6 +203,15 @@ fn finish(sw: Sweep, l: &Loaded) -> Analysis {
             .entry(*addr)
             .or_insert((format!("sub_{addr:x}"), 0, "unwind"));
     }
+    for b in sw
+        .boundaries
+        .iter()
+        .filter(|b| !sw.cond_targets.contains(b))
+    {
+        cands
+            .entry(*b)
+            .or_insert((format!("sub_{b:x}"), 0, "boundary"));
+    }
     for t in &l.relocated {
         cands
             .entry(*t)
@@ -176,8 +235,10 @@ fn finish(sw: Sweep, l: &Loaded) -> Analysis {
     };
     cands.retain(|addr, (_, _, source)| {
         exec_contains(sections, *addr).is_some()
-            && !(matches!(*source, "call_target" | "code_pointer" | "data_pointer")
-                && inside_unwind(*addr))
+            && !(matches!(
+                *source,
+                "call_target" | "code_pointer" | "data_pointer" | "boundary"
+            ) && inside_unwind(*addr))
     });
 
     let starts: Vec<u64> = cands.keys().copied().collect();

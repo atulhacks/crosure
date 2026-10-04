@@ -29,14 +29,13 @@ stripped file in the last column.
 
 | Stripped binary | Starts found | Exact sizes | rizin `aaa` starts |
 | --- | --- | --- | --- |
-| gcc -O2 ELF | 65.8% → **98.8%** | 7.7% → **100%** | 48.2% |
+| gcc -O2 ELF | 65.8% → **100%** | 7.7% → **100%** | 48.2% |
 | clang -O2 ELF | 64.5% → **98.8%** | 6.1% → **100%** | 46.2% |
-| gcc, no unwind tables | ~66% → **90.4%** | ~8% → **91.7%** | 48.2% |
+| gcc, no unwind tables | ~66% → **98.8%** | ~8% → **98.7%** | 48.2% |
 | mingw PE | 75.3% → **99.6%** | n/a (COFF has no sizes) | 60.9% |
 | librz_util.so -O3 | 95.8% → **100%** | 92.0% → **100%** | 93.0% |
 
-Precision is 100% everywhere except the PE, where it is 99.6%. The one ELF
-miss is `register_tm_clones`, a CRT function that only a tail jump reaches.
+Precision is 100% everywhere except the PE, where it is 99.6%.
 
 **Why the jump.** Stripped ELF files keep `.eh_frame`, and its entries give
 the exact start and size of every compiled function. On these builds that
@@ -104,13 +103,35 @@ headers and overlays are kept as before. After the fix:
 - the strings code references are 71 / 67 / 67: the same source gives the
   same answer on each architecture.
 
+### Layout-based starts and switch tables (x86)
+
+Without unwind tables, functions that nothing calls (unused exports, CRT
+helpers reached by a tail jump) were missed. `native/boundary.rs` takes an
+instruction after a terminator (`ret`, `jmp`, `ud2`, or a call to a function
+on r2's noreturn list) and alignment padding as a function start, unless a
+conditional branch targets it.
+
+On its own this rule cost precision: switch cases sit after a `jmp` and
+padding too, and nothing branches to them directly. `native/jumptable.rs`
+recovers x86-64 switch tables (PIC `lea`/`movsxd`/`add`, and absolute
+`jmp [idx*8 + T]`) and marks the cases as inside a function. On ARM32 the
+rule hit literal pools, so it runs on x86 only.
+
+| Stripped binary | Starts, before → after | Precision |
+| --- | --- | --- |
+| gcc, no unwind tables | 90.4% → **98.8%** | 100% |
+| gcc -O2 ELF | 98.8% → **100%** | 100% |
+| Others | unchanged | unchanged |
+
 ## Known limits
 
 - ARM-mode functions inside a Thumb binary are decoded as Thumb. Here
   that is 3 of 92 functions, all C runtime startup code.
-- No noreturn propagation or jump-table recovery yet. These matter only
-  when there are no unwind tables: a gcc build without them reaches 90.4%
-  of function starts.
+- Noreturn is a fixed name list, not propagated to wrappers. Jump-table
+  length is not read from the bounds check; entries are read while they
+  point into code. Both matter only without unwind tables (98.8% there).
+- The layout rule is x86 only; ARM literal pools would need to be skipped
+  first.
 - Mach-O `LC_FUNCTION_STARTS` is not read. There is no Mach-O corpus to
   measure it on.
 
