@@ -25,7 +25,13 @@ export function formatHeaders(h: Record<string, string> | undefined): string {
     .join("\n");
 }
 
-/** Collapsible per-provider options: reasoning effort, output-limit field, custom headers. */
+/** A token count typed by the analyst; empty or invalid means unset. */
+export function tokens(text: string): number | null {
+  const n = Number.parseInt(text, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Collapsible per-provider options: reasoning effort, token limits, output-limit field, custom headers. */
 export function ProviderAdvanced({
   draft,
   set,
@@ -72,6 +78,34 @@ export function ProviderAdvanced({
             Send max_completion_tokens instead of max_tokens
           </label>
         )}
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="label">Context window</span>
+            <input
+              type="number"
+              min={0}
+              className={`${field} h-7 font-mono text-xs`}
+              value={draft.context_window ?? ""}
+              placeholder="unknown"
+              onChange={(e) => set({ context_window: tokens(e.target.value) })}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="label">Max output</span>
+            <input
+              type="number"
+              min={0}
+              className={`${field} h-7 font-mono text-xs`}
+              value={draft.max_output ?? ""}
+              placeholder="default"
+              onChange={(e) => set({ max_output: tokens(e.target.value) })}
+            />
+          </label>
+          <span className="col-span-2 text-2xs text-faint">
+            Tokens. Filled from the server when it reports them (Fetch models). A smaller window
+            makes the agent elide old results sooner; it never raises the run's budget.
+          </span>
+        </div>
         <label className="flex flex-col gap-1">
           <span className="label">Custom headers</span>
           <textarea

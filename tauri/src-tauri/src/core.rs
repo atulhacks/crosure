@@ -214,7 +214,7 @@ pub fn agent_save_settings(
 pub fn agent_list_models(
     state: &AppState,
     provider: crosure_agent::ProviderConfig,
-) -> Res<Vec<String>> {
+) -> Res<Vec<crosure_agent::ModelInfo>> {
     state.agent.models(provider)
 }
 

@@ -178,6 +178,19 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
                 {(e.tokens / 1000).toFixed(0)}k tokens). They stay on the graph.
               </div>
             );
+          case "prompt_truncated":
+            return (
+              <div
+                key={i}
+                className="rounded-md border border-warn/40 px-2.5 py-1.5 text-xs text-warn"
+              >
+                The server read only {e.reported.toLocaleString()} of ~
+                {e.estimated.toLocaleString()} prompt tokens, so it most likely dropped the start of
+                the conversation. Its context is smaller than this thread (Ollama: set
+                OLLAMA_CONTEXT_LENGTH, or a larger num_ctx in the Modelfile). Old results are now
+                elided to fit.
+              </div>
+            );
           case "switched":
             return (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted">

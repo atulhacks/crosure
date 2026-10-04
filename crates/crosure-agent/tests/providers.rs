@@ -18,6 +18,8 @@ fn turn_with_call() -> Turn {
         stop: Stop::ToolUse,
         input_tokens: 0,
         output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
         raw: json!(null),
     }
 }

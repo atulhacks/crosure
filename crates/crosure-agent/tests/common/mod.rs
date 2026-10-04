@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+pub mod mock;
+
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 

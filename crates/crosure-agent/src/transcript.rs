@@ -37,8 +37,15 @@ pub enum Stop {
 pub struct Turn {
     pub blocks: Vec<Block>,
     pub stop: Stop,
+    /// The whole prompt this turn answered, cached parts included.
     pub input_tokens: u64,
     pub output_tokens: u64,
+    /// Prompt tokens served from the provider's cache.
+    #[serde(default)]
+    pub cache_read_tokens: u64,
+    /// Prompt tokens written to the provider's cache.
+    #[serde(default)]
+    pub cache_write_tokens: u64,
     /// The provider-native assistant message, echoed back verbatim to the same
     /// provider (Anthropic requires thinking blocks to come back unchanged).
     pub raw: Value,

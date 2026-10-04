@@ -11,6 +11,7 @@
 //! [`Transcript`], so a run can move to the next provider if one declines.
 
 mod agent;
+mod budget;
 mod call;
 mod context;
 mod error;
@@ -31,9 +32,10 @@ pub use events::{AgentEvent, Sink};
 pub use executor::SessionExecutor;
 pub use policy::{ApprovalRequest, Permission, Permissions, Profile};
 pub use providers::{
-    anthropic_compatible, anthropic_request, build_chain, build_provider, list_models,
-    openai_request, presets, AgentSettings, AnthropicProvider, Extras, KeySource, OpenAiProvider,
-    Provider, ProviderConfig, ProviderKind, ProviderView, ScriptedProvider, DEFAULT_MODEL,
+    anthropic_compatible, anthropic_request, build_chain, build_provider, list_model_info,
+    list_models, openai_request, parse_model_list, presets, AgentSettings, AnthropicProvider,
+    Extras, KeySource, ModelInfo, ModelLimits, OpenAiProvider, Provider, ProviderConfig,
+    ProviderKind, ProviderView, ScriptedProvider, DEFAULT_MODEL,
 };
 pub use render::render_result;
 pub use tools::{parse_tool_call, tool_definitions, tool_definitions_for, ToolCall};

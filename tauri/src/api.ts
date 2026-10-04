@@ -1,5 +1,6 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
+  ModelInfo,
   AgentEventPage,
   AgentSettings,
   AgentStatus,
@@ -100,9 +101,9 @@ export const agentSettings = () => invoke<SettingsView>("agent_settings");
 export const agentSaveSettings = (settings: AgentSettings) =>
   invoke<SettingsView>("agent_save_settings", { settings });
 
-/** Lists a provider's models; doubles as a connection test. */
+/** Lists a provider's models with any limits the server reports; doubles as a connection test. */
 export const agentListModels = (provider: ProviderConfig) =>
-  invoke<string[]>("agent_list_models", { provider });
+  invoke<ModelInfo[]>("agent_list_models", { provider });
 
 /**
  * Sends a prompt to the shown thread (or a new one). `@name` attaches a

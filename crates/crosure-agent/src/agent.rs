@@ -1,5 +1,6 @@
 use serde_json::Value;
 
+use crate::budget::Budget;
 use crate::call::{run_one, CallCtx};
 use crate::context::{elide_old_results, estimate_tokens, is_context_overflow};
 use crate::policy::Permissions;
@@ -17,7 +18,9 @@ pub struct AgentConfig {
     pub permissions: Permissions,
     /// Estimated request size (tokens) above which old tool results are
     /// elided, down to two thirds of it (in one go, so prompt caching keeps
-    /// working). Providers that reject a long prompt trigger the same.
+    /// working). A bound on cost: a model with a smaller window lowers it
+    /// (see [`crate::ModelLimits`]). Providers that reject a long prompt
+    /// trigger the same.
     pub context_tokens: usize,
     /// Retries of a temporary provider failure (429, overload, 5xx, network).
     pub max_retries: u32,
@@ -102,7 +105,8 @@ pub fn run_agent_turn(
     } else {
         t.push_user(prompt);
     }
-    let (mut input, mut output, mut tool_calls) = (0u64, 0u64, 0u32);
+    let (mut input, mut output, mut cached, mut tool_calls) = (0u64, 0u64, 0u64, 0u32);
+    let mut budget = Budget::new(cfg.context_tokens);
     let mut overflow_retried = false;
 
     for turn_no in 1..=cfg.max_turns + 3 {
@@ -111,9 +115,12 @@ pub fn run_agent_turn(
             return Ok(String::new());
         }
         let provider = &chain[cur];
-        if estimate_tokens(t) > cfg.context_tokens {
-            trim(t, sink, cfg.context_tokens * 2 / 3);
+        let limit = budget.limit(provider.as_ref());
+        if budget.estimate(t) > limit {
+            let ratio = budget.estimate(t) as f64 / estimate_tokens(t).max(1) as f64;
+            trim(t, sink, (limit as f64 * 2.0 / 3.0 / ratio) as usize);
         }
+        let sent = estimate_tokens(t);
         let turn = match next_turn(provider.as_ref(), t, sink, cfg) {
             Ok(Some(r)) => {
                 overflow_retried = false;
@@ -141,11 +148,16 @@ pub fn run_agent_turn(
                 return Err(e);
             }
         };
+        budget.observe(sent, turn.input_tokens, sink);
         input += turn.input_tokens;
         output += turn.output_tokens;
+        cached += turn.cache_read_tokens;
         sink.emit(AgentEvent::Usage {
             input_tokens: input,
             output_tokens: output,
+            cached_tokens: cached,
+            context_tokens: turn.input_tokens,
+            context_limit: limit as u64,
         });
 
         if let Stop::Refusal {

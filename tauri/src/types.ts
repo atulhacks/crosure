@@ -275,6 +275,17 @@ export interface ProviderConfig {
   reasoning_effort: string | null;
   /** Extra HTTP headers sent with every request. */
   headers: Record<string, string>;
+  /** Context window in tokens; null when unknown. */
+  context_window: number | null;
+  /** Longest reply in tokens (the request's max_tokens); null keeps the default. */
+  max_output: number | null;
+}
+
+/** A model a server lists, with the limits it reports. */
+export interface ModelInfo {
+  id: string;
+  context_window: number | null;
+  max_output: number | null;
 }
 
 export interface ProviderView extends ProviderConfig {
@@ -347,11 +358,21 @@ export type AgentEvent =
     }
   | { type: "failed"; error: string }
   | { type: "stopped" }
-  | { type: "usage"; input_tokens: number; output_tokens: number }
+  | {
+      type: "usage";
+      input_tokens: number;
+      output_tokens: number;
+      cached_tokens?: number;
+      /** Last request's prompt size, as the server counted it. */
+      context_tokens?: number;
+      /** Prompt size at which old results are elided. */
+      context_limit?: number;
+    }
   | { type: "approval_requested"; request: ApprovalRequest }
   | { type: "approval_resolved"; id: string; allowed: boolean }
   | { type: "retrying"; attempt: number; delay_ms: number; error: string }
-  | { type: "context_trimmed"; elided: number; tokens: number };
+  | { type: "context_trimmed"; elided: number; tokens: number }
+  | { type: "prompt_truncated"; estimated: number; reported: number };
 
 export interface AgentEventPage {
   events: AgentEvent[];

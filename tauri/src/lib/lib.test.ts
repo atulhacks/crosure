@@ -147,6 +147,8 @@ describe("toConfig", () => {
       max_completion_tokens: false,
       reasoning_effort: null,
       headers: {},
+      context_window: null,
+      max_output: null,
       enabled: true,
       key_source: "not_needed" as const,
       ready: true,
@@ -171,6 +173,8 @@ describe("isReady", () => {
       max_completion_tokens: false,
       reasoning_effort: null,
       headers: {},
+      context_window: null,
+      max_output: null,
       enabled: true,
       key_source: "missing" as const,
     };
@@ -214,6 +218,19 @@ describe("agent helpers", () => {
       pendingApprovals([...events, { type: "approval_resolved" as const, id: "a", allowed: true }]),
     ).toEqual([]);
     expect(latestUsage(events)).toBe(1200);
+  });
+  it("reads context fill from the last usage event", async () => {
+    const { contextFill } = await import("../store/agent");
+    const old = { type: "usage" as const, input_tokens: 1, output_tokens: 1 };
+    expect(contextFill([old])).toBeNull();
+    const now = { ...old, context_tokens: 40_000, context_limit: 50_000 };
+    expect(contextFill([old, now])).toEqual({ used: 40_000, limit: 50_000 });
+  });
+  it("parses typed token limits", async () => {
+    const { tokens } = await import("../components/agent/ProviderAdvanced");
+    expect(tokens("32768")).toBe(32768);
+    expect(tokens("")).toBeNull();
+    expect(tokens("-5")).toBeNull();
   });
   it("toggles confirm-before-changes", async () => {
     const { confirmsChanges, withConfirm } = await import("../components/agent/BehaviourForm");

@@ -3,7 +3,7 @@ import { ArrowUp, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../api";
 import { fuzzyFilter } from "../../lib/fuzzy";
-import { latestUsage, useAgent } from "../../store/agent";
+import { contextFill, latestUsage, useAgent } from "../../store/agent";
 import { useWorkbench } from "../../store/workbench";
 import type { Profile, ProviderView } from "../../types";
 
@@ -84,6 +84,8 @@ export function Composer() {
     if (draft.trim() && !running) start(draft.trim());
   };
   const usage = latestUsage(events);
+  const fill = contextFill(events);
+  const pct = fill ? Math.round((100 * fill.used) / fill.limit) : 0;
 
   return (
     <div className="relative m-2 rounded-lg border bg-bg focus-within:border-brand/50">
@@ -180,6 +182,14 @@ export function Composer() {
         >
           {usage > 0 ? `${(usage / 1000).toFixed(1)}k tok` : ""}
         </span>
+        {fill && (
+          <span
+            className={`font-mono text-2xs nums ${pct >= 80 ? "text-warn" : "text-faint"}`}
+            title={`Context: ${fill.used.toLocaleString()} of ${fill.limit.toLocaleString()} tokens. Above the limit, the oldest tool results are elided (they stay on the graph).`}
+          >
+            ctx {pct}%
+          </span>
+        )}
         {running ? (
           <button
             onClick={stop}

@@ -107,7 +107,7 @@ recorded step (`dis main --from 400`), so the graph shows that a second page
 was viewed, not a repeated call.
 
 Before each request the agent estimates its size. When the estimate is over
-the budget (`AgentConfig.context_tokens`, 100k by default), it replaces the
+the budget, it replaces the
 oldest large tool results with their first line and a note to re-run the
 call, trimming down to two thirds of the budget in one go so the prompt
 cache keeps working. The three newest results are never trimmed. If a
@@ -116,6 +116,33 @@ it trims harder and retries once. Trimming is shown in the transcript.
 
 Nothing is lost. Every result is still a recorded step on the graph, and the
 model can fetch it again.
+
+**The budget.** The budget is `AgentConfig.context_tokens` (100k by default),
+a bound on cost. It is lowered to the model's context window minus its output
+limit, with a 5% margin, when the window is known. A larger window never
+raises it. The size estimate counts characters and is then corrected by the
+ratio between the prompt size the server reports and the estimate.
+Disassembly takes more tokens per character than prose.
+
+**Model limits.** Each provider has an optional context window and output
+limit (Settings → provider → Advanced). The output limit is sent as the
+request's `max_tokens`; without it, Anthropic gets 16000 and OpenAI-compatible
+servers 8192. Fetch models fills both in when the server reports them:
+- Anthropic: `max_input_tokens` and `max_tokens`;
+- OpenRouter: `context_length` and `top_provider.max_completion_tokens`;
+- llama.cpp: `meta.n_ctx`;
+- Gemini: `inputTokenLimit` and `outputTokenLimit`.
+
+There is no built-in table of vendor models, because it would go stale.
+
+**Silent truncation.** Ollama's OpenAI endpoint cannot be given a context
+size. A prompt longer than the model's loaded context loses its start, task
+and system prompt included, and no error is returned. The agent compares the
+prompt size the server reports with what it sent. Below half means the
+server dropped part of it. The transcript then warns once, with the fix
+(`OLLAMA_CONTEXT_LENGTH`), and later requests are trimmed to what the server
+kept. The composer shows how full the context was on the last request
+(`ctx 42%`), in amber from 80%.
 
 **Temporary failures.** The agent retries a request when the provider is
 temporarily unavailable: 408, 429, 500, 502, 503, 504, 529 (overloaded), or a
@@ -216,7 +243,9 @@ The UI polls `agent_events(since)`. Each run emits these events:
 - `tool_call` (command, reason, step id or error);
 - `approval_requested` and `approval_resolved`;
 - `refusal` and `switched`;
-- `usage`;
+- `usage` (cumulative tokens, cached tokens, last prompt size against the
+  budget);
+- `retrying`, `context_trimmed` and `prompt_truncated`;
 - `finished` (report, turns, tokens), `failed` or `stopped`.
 
 The same stream is saved with the thread, so a reopened conversation looks

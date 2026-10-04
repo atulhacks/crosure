@@ -23,7 +23,7 @@ pub struct Extras {
 }
 
 /// Thinking budget an Anthropic-compatible server gets for an effort level
-/// (kept under the request's `max_tokens` of 16000).
+/// (capped below the request's `max_tokens` when applied).
 fn budget(effort: &str) -> Option<u64> {
     match effort {
         "minimal" | "low" => Some(2048),
@@ -105,6 +105,12 @@ impl Extras {
                 o.insert("output_config".into(), json!({ "effort": e }));
             }
         } else if let Some(b) = budget(e) {
+            // The budget must stay below `max_tokens`, leaving room to answer.
+            let cap = o
+                .get("max_tokens")
+                .and_then(Value::as_u64)
+                .map_or(b, |m| m * 3 / 4);
+            let b = b.min(cap).max(1024);
             o.insert(
                 "thinking".into(),
                 json!({ "type": "enabled", "budget_tokens": b }),

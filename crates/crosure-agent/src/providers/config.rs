@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::anthropic::{first_party, AnthropicProvider};
-use super::http::Http;
+use super::anthropic::AnthropicProvider;
+use super::limits::ModelLimits;
 use super::openai::OpenAiProvider;
 use super::presets::presets;
 use super::Provider;
@@ -48,6 +48,13 @@ pub struct ProviderConfig {
     /// Extra HTTP headers sent with every request.
     #[serde(default)]
     pub headers: BTreeMap<String, String>,
+    /// The model's context window in tokens, from the server's model list
+    /// or set by the analyst. Unset: the run's own budget applies.
+    #[serde(default)]
+    pub context_window: Option<u64>,
+    /// Longest reply in tokens; unset keeps the protocol default.
+    #[serde(default)]
+    pub max_output: Option<u64>,
 }
 
 fn yes() -> bool {
@@ -88,6 +95,14 @@ impl ProviderConfig {
             KeySource::Missing
         };
         (None, src)
+    }
+
+    /// The model's limits as configured.
+    pub fn limits(&self) -> ModelLimits {
+        ModelLimits {
+            context_window: self.context_window.filter(|n| *n > 0),
+            max_output: self.max_output.filter(|n| *n > 0),
+        }
     }
 
     /// Enabled, has an endpoint and a model, and has a key unless it is local.
@@ -222,7 +237,8 @@ pub fn build_provider(cfg: &ProviderConfig) -> Result<Box<dyn Provider>, AgentEr
                 &cfg.base_url,
                 key.as_deref().unwrap_or(""),
             )?
-            .with_extras(cfg.extras()),
+            .with_extras(cfg.extras())
+            .with_limits(cfg.limits()),
         ),
         ProviderKind::OpenaiCompatible => Box::new(
             OpenAiProvider::new(
@@ -232,7 +248,8 @@ pub fn build_provider(cfg: &ProviderConfig) -> Result<Box<dyn Provider>, AgentEr
                 key.as_deref(),
                 cfg.strict_tools,
             )?
-            .with_extras(cfg.extras()),
+            .with_extras(cfg.extras())
+            .with_limits(cfg.limits()),
         ),
     })
 }
@@ -252,36 +269,4 @@ pub fn build_chain(s: &AgentSettings) -> Result<Vec<Box<dyn Provider>>, AgentErr
         return Err(AgentError::NoApiKey);
     }
     Ok(chain)
-}
-
-/// Lists model ids the provider's server offers (also a connection test).
-pub fn list_models(cfg: &ProviderConfig) -> Result<Vec<String>, AgentError> {
-    let http = Http::new()?;
-    let (key, _) = cfg.key();
-    let base = cfg.base_url.trim_end_matches('/');
-    let extras = cfg.extras();
-    let (url, headers) = match cfg.kind {
-        ProviderKind::Anthropic => (
-            format!("{base}/v1/models?limit=100"),
-            AnthropicProvider::headers(key.as_deref().unwrap_or(""), first_party(&cfg.base_url)),
-        ),
-        ProviderKind::OpenaiCompatible => (
-            format!("{base}/models"),
-            OpenAiProvider::headers(key.as_deref()),
-        ),
-    };
-    let resp = http.call(&url, &extras.with_headers(headers), None)?;
-    let mut ids: Vec<String> = resp["data"]
-        .as_array()
-        .or_else(|| resp["models"].as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|m| m["id"].as_str().or_else(|| m["name"].as_str()))
-                // Gemini lists `models/gemini-…`; requests take the bare id.
-                .map(|id| id.strip_prefix("models/").unwrap_or(id).to_string())
-                .collect()
-        })
-        .unwrap_or_default();
-    ids.sort();
-    Ok(ids)
 }

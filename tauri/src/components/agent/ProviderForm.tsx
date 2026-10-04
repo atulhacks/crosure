@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import * as api from "../../api";
-import type { KeySource, ProviderConfig } from "../../types";
+import type { KeySource, ModelInfo, ProviderConfig } from "../../types";
 import { Button } from "../ui/Button";
 import { ProviderAdvanced } from "./ProviderAdvanced";
 
@@ -26,6 +26,8 @@ export function toConfig(d: Draft): ProviderConfig {
     max_completion_tokens: d.max_completion_tokens ?? false,
     reasoning_effort: d.reasoning_effort || null,
     headers: d.headers ?? {},
+    context_window: d.context_window ?? null,
+    max_output: d.max_output ?? null,
   };
 }
 
@@ -84,7 +86,7 @@ export function ProviderForm({
   onChange: (d: Draft) => void;
   onRemove: () => void;
 }) {
-  const [models, setModels] = useState<string[] | null>(null);
+  const [models, setModels] = useState<ModelInfo[] | null>(null);
   const [probe, setProbe] = useState<{ busy: boolean; error: string | null }>({
     busy: false,
     error: null,
@@ -137,11 +139,19 @@ export function ProviderForm({
             value={draft.model}
             list={`models-${draft.id}`}
             placeholder="Type a model id or fetch the list"
-            onChange={(e) => set({ model: e.target.value })}
+            onChange={(e) => {
+              // A listed model brings the limits its server reports.
+              const m = models?.find((m) => m.id === e.target.value);
+              set(
+                m && (m.context_window || m.max_output)
+                  ? { model: m.id, context_window: m.context_window, max_output: m.max_output }
+                  : { model: e.target.value },
+              );
+            }}
           />
           <datalist id={`models-${draft.id}`}>
             {models?.map((m) => (
-              <option key={m} value={m} />
+              <option key={m.id} value={m.id} />
             ))}
           </datalist>
           <Button

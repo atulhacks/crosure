@@ -75,6 +75,13 @@ impl Sink for Print {
             AgentEvent::ContextTrimmed { elided, tokens } => {
                 eprintln!("· elided {elided} old tool results (~{tokens} tokens now)")
             }
+            AgentEvent::PromptTruncated {
+                estimated,
+                reported,
+            } => eprintln!(
+                "! the server read {reported} of ~{estimated} prompt tokens: its context is too small \
+                 (Ollama: set OLLAMA_CONTEXT_LENGTH); trimming to fit"
+            ),
             AgentEvent::Usage { .. }
             | AgentEvent::ApprovalRequested { .. }
             | AgentEvent::ApprovalResolved { .. } => {}

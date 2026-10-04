@@ -45,10 +45,19 @@ pub enum AgentEvent {
     Failed { error: String },
     /// The user stopped the run.
     Stopped,
-    /// Cumulative tokens for the run so far.
+    /// Cumulative tokens for the run so far, and how full the context is.
     Usage {
         input_tokens: u64,
         output_tokens: u64,
+        /// Prompt tokens served from the provider's cache, cumulative.
+        #[serde(default)]
+        cached_tokens: u64,
+        /// Size of the last request's prompt, as the server counted it.
+        #[serde(default)]
+        context_tokens: u64,
+        /// Prompt size at which old results are elided (see `AgentConfig`).
+        #[serde(default)]
+        context_limit: u64,
     },
     /// A tool call is waiting for the analyst (tool permission `confirm`).
     ApprovalRequested { request: ApprovalRequest },
@@ -62,6 +71,10 @@ pub enum AgentEvent {
     },
     /// Old tool results were elided to stay within the context window.
     ContextTrimmed { elided: usize, tokens: usize },
+    /// The server counted far fewer prompt tokens than were sent: it most
+    /// likely dropped the start of the prompt (a local server's context is
+    /// smaller than the conversation). Later requests are trimmed to fit.
+    PromptTruncated { estimated: usize, reported: usize },
 }
 
 /// Where events go, and whether the user asked to stop.

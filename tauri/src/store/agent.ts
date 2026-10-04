@@ -55,6 +55,23 @@ export function latestUsage(events: AgentEvent[]) {
   return 0;
 }
 
+/**
+ * How full the context was on the last request: the server's count of the
+ * prompt against the size at which old results are elided. Null before the
+ * first reply, or for threads recorded before this was reported.
+ */
+export function contextFill(events: AgentEvent[]): { used: number; limit: number } | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type === "usage") {
+      return e.context_tokens && e.context_limit
+        ? { used: e.context_tokens, limit: e.context_limit }
+        : null;
+    }
+  }
+  return null;
+}
+
 export const useAgent = create<AgentState>((set, get) => ({
   status: null,
   events: [],

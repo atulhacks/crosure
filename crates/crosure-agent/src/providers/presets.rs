@@ -60,6 +60,8 @@ pub fn presets() -> Vec<ProviderConfig> {
                 enabled: true,
                 max_completion_tokens: false,
                 reasoning_effort: None,
+                context_window: None,
+                max_output: None,
                 headers: Default::default(),
             },
         )

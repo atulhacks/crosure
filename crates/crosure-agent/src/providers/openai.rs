@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 
 use super::extras::Extras;
 use super::http::Http;
+use super::limits::ModelLimits;
 use super::Provider;
 use crate::tools::tool_definitions_for;
 use crate::Profile;
@@ -204,8 +205,14 @@ pub(crate) fn parse_openai(resp: &Value) -> Turn {
     Turn {
         blocks,
         stop,
+        // `prompt_tokens` already includes the cached part.
         input_tokens: u["prompt_tokens"].as_u64().unwrap_or(0),
         output_tokens: u["completion_tokens"].as_u64().unwrap_or(0),
+        cache_read_tokens: u["prompt_tokens_details"]["cached_tokens"]
+            .as_u64()
+            .or_else(|| u["prompt_cache_hit_tokens"].as_u64())
+            .unwrap_or(0),
+        cache_write_tokens: 0,
         raw: msg.clone(),
     }
 }
@@ -218,6 +225,7 @@ pub struct OpenAiProvider {
     api_key: Option<String>,
     strict: bool,
     extras: Extras,
+    limits: ModelLimits,
     http: Http,
 }
 
@@ -239,6 +247,7 @@ impl OpenAiProvider {
                 .filter(|k| !k.is_empty()),
             strict,
             extras: Extras::default(),
+            limits: ModelLimits::default(),
             http: Http::new()?,
         })
     }
@@ -246,6 +255,12 @@ impl OpenAiProvider {
     /// Sets custom headers, reasoning effort and the output-limit field.
     pub fn with_extras(mut self, extras: Extras) -> Self {
         self.extras = extras;
+        self
+    }
+
+    /// Sets the model's limits; `max_output` becomes the output limit.
+    pub fn with_limits(mut self, limits: ModelLimits) -> Self {
+        self.limits = limits;
         self
     }
 
@@ -265,8 +280,14 @@ impl Provider for OpenAiProvider {
     fn model(&self) -> &str {
         &self.model
     }
+    fn limits(&self) -> ModelLimits {
+        self.limits
+    }
     fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
         let mut body = openai_request(&self.id, &self.model, t, self.strict);
+        if let Some(n) = self.limits.max_output {
+            body["max_tokens"] = json!(n);
+        }
         self.extras.apply_openai(&mut body);
         let url = format!("{}/chat/completions", self.base_url);
         let headers = self

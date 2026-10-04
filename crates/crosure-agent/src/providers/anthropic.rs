@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 
 use super::extras::Extras;
 use super::http::Http;
+use super::limits::ModelLimits;
 use super::Provider;
 use crate::tools::tool_definitions_for;
 use crate::{AgentError, Block, Entry, Stop, Transcript, Turn};
@@ -111,19 +112,19 @@ pub(crate) fn parse_anthropic(resp: &Value) -> Turn {
         _ => Stop::EndTurn,
     };
     let u = &resp["usage"];
-    let input = [
-        "input_tokens",
-        "cache_read_input_tokens",
-        "cache_creation_input_tokens",
-    ]
-    .iter()
-    .map(|k| u[*k].as_u64().unwrap_or(0))
-    .sum();
+    let n = |k: &str| u[k].as_u64().unwrap_or(0);
+    let (read, write) = (
+        n("cache_read_input_tokens"),
+        n("cache_creation_input_tokens"),
+    );
     Turn {
         blocks,
         stop,
-        input_tokens: input,
-        output_tokens: u["output_tokens"].as_u64().unwrap_or(0),
+        // The whole prompt: uncached, read from cache, written to cache.
+        input_tokens: n("input_tokens") + read + write,
+        output_tokens: n("output_tokens"),
+        cache_read_tokens: read,
+        cache_write_tokens: write,
         raw: Value::Array(content),
     }
 }
@@ -158,6 +159,7 @@ pub struct AnthropicProvider {
     api_key: String,
     claude_api: bool,
     extras: Extras,
+    limits: ModelLimits,
     http: Http,
 }
 
@@ -174,6 +176,7 @@ impl AnthropicProvider {
             api_key: api_key.trim().into(),
             claude_api: first_party(base_url),
             extras: Extras::default(),
+            limits: ModelLimits::default(),
             http: Http::new()?,
         })
     }
@@ -181,6 +184,12 @@ impl AnthropicProvider {
     /// Sets custom headers and reasoning effort.
     pub fn with_extras(mut self, extras: Extras) -> Self {
         self.extras = extras;
+        self
+    }
+
+    /// Sets the model's limits; `max_output` becomes `max_tokens`.
+    pub fn with_limits(mut self, limits: ModelLimits) -> Self {
+        self.limits = limits;
         self
     }
 
@@ -210,8 +219,14 @@ impl Provider for AnthropicProvider {
     fn model(&self) -> &str {
         &self.model
     }
+    fn limits(&self) -> ModelLimits {
+        self.limits
+    }
     fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
         let mut body = anthropic_request(&self.id, &self.model, t);
+        if let Some(n) = self.limits.max_output {
+            body["max_tokens"] = json!(n);
+        }
         if !self.claude_api {
             compatible(&mut body);
         }

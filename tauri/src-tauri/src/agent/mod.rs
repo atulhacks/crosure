@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use crosure_agent::{
-    build_chain, list_models, presets, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
+    build_chain, list_model_info, presets, ModelInfo, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
     Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
 };
 use serde::Serialize;
@@ -198,8 +198,9 @@ impl AgentRuntime {
         Ok(self.settings_view())
     }
 
-    /// Model ids a provider offers (also tests the connection). Uses the saved key when none is given.
-    pub fn models(&self, mut cfg: ProviderConfig) -> Result<Vec<String>, String> {
+    /// Models a provider offers, with the limits its server reports (also
+    /// tests the connection). Uses the saved key when none is given.
+    pub fn models(&self, mut cfg: ProviderConfig) -> Result<Vec<ModelInfo>, String> {
         if cfg.api_key.as_deref().is_none_or(str::is_empty) {
             cfg.api_key = self
                 .snapshot()
@@ -208,7 +209,7 @@ impl AgentRuntime {
                 .find(|p| p.id == cfg.id)
                 .and_then(|p| p.api_key);
         }
-        list_models(&cfg).map_err(|e| e.to_string())
+        list_model_info(&cfg).map_err(|e| e.to_string())
     }
 
     /// Makes `id` the provider runs start on.
