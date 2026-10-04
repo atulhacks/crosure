@@ -4,6 +4,7 @@ use crate::budget::Budget;
 use crate::call::{run_one, CallCtx};
 use crate::context::{elide_old_results, estimate_tokens, is_context_overflow};
 use crate::policy::Permissions;
+use crate::prompt::wrap_up;
 use crate::providers::Provider;
 use crate::retry::next_turn;
 use crate::tools::ToolCall;
@@ -60,8 +61,6 @@ pub trait Executor: Send + Sync {
     /// One paragraph describing the open binary, given to the model up front.
     fn context(&self) -> String;
 }
-
-const WRAP_UP: &str = "Step limit reached. Call record_verdict if you have not, then write the final report without further analysis.";
 
 /// Sent when a reply was cut off by the output limit.
 const CUT_OFF: &str = "Your last reply hit the output limit and was cut off. Continue from where you stopped, more briefly.";
@@ -234,7 +233,7 @@ pub fn run_agent_turn(
                         }
                     })
                     .collect();
-                let note = (turn_no >= cfg.max_turns).then(|| WRAP_UP.to_string());
+                let note = (turn_no >= cfg.max_turns).then(|| wrap_up(t.profile).to_string());
                 t.entries.push(Entry::Results { results, note });
             }
             Stop::PauseTurn => continue,

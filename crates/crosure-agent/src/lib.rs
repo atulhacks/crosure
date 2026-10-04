@@ -31,6 +31,7 @@ pub use error::AgentError;
 pub use events::{AgentEvent, Sink};
 pub use executor::SessionExecutor;
 pub use policy::{ApprovalRequest, Permission, Permissions, Profile};
+pub use prompt::system_prompt;
 pub use providers::{
     anthropic_compatible, anthropic_request, build_chain, build_provider, list_model_info,
     list_models, openai_request, parse_model_list, presets, AgentSettings, AnthropicProvider,

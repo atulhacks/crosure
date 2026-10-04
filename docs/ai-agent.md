@@ -223,6 +223,34 @@ claude mcp add crosure -- ./target/debug/crosure-mcp ./sample
 Steps from MCP clients are tagged `mcp:<client name>` and carry the `why`
 argument. They appear on the same graph as everything else.
 
+How the server behaves, per the 2025-06-18 spec:
+- **Protocol version.** It answers with the client's requested version if it
+  supports it (2025-06-18, 2025-03-26, 2024-11-05), otherwise with its newest.
+- **Tool metadata.** Each tool has a `title` and behaviour hints taken from
+  the op registry:
+  - analysis tools are `readOnlyHint`;
+  - renames, comments and `record_*` change the graph, but are not
+    destructive, because old values stay on it;
+  - no tool reaches outside the session.
+- **Results.** A successful call returns the rendered text plus
+  `structuredContent` with the recorded `step_id`, so a client can cite the
+  step.
+- **Errors.** An unknown tool returns error `-32602`, a message without a
+  method returns `-32600`, and bad arguments are a tool result with
+  `isError: true`. Batches (arrays) are answered as arrays.
+
+## Prompts per profile
+
+The system prompt only names tools the thread's profile offers:
+- **Read-only:** the rename advice is dropped, and the model is told to
+  suggest names in its report instead.
+- **Ask:** the prompt has no tool instructions at all. The model answers from
+  the attached context and says what analysis would settle the question.
+
+Models that see a tool named in the prompt tend to call it even when it was
+not offered. The Investigate prompt is unchanged byte for byte, so prompt
+caches and recorded datasets are unaffected. A test enforces both rules.
+
 ## CLI
 
 ```bash

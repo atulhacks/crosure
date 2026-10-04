@@ -40,6 +40,10 @@ fn an_mcp_client_session_is_recorded() -> Result<(), Box<dyn std::error::Error>>
 
     let call = s.handle(&json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"disassemble","arguments":{"target":"check_password","why":"read the checker"}}})).ok_or("no reply")?;
     assert_eq!(call["result"]["isError"], false);
+    let step_id = call["result"]["structuredContent"]["step_id"]
+        .as_str()
+        .ok_or("step id")?
+        .to_string();
     assert!(call["result"]["content"][0]["text"]
         .as_str()
         .is_some_and(|t| t.contains("strcmp@plt")));
@@ -50,6 +54,25 @@ fn an_mcp_client_session_is_recorded() -> Result<(), Box<dyn std::error::Error>>
         .handle(&json!({"jsonrpc":"2.0","id":5,"method":"resources/list"}))
         .ok_or("no reply")?;
     assert_eq!(unknown["error"]["code"], -32601);
+    let no_tool = s
+        .handle(&json!({"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"format_disk","arguments":{}}}))
+        .ok_or("no reply")?;
+    assert_eq!(no_tool["error"]["code"], -32602);
+    let no_method = s
+        .handle(&json!({"jsonrpc":"2.0","id":7}))
+        .ok_or("no reply")?;
+    assert_eq!(no_method["error"]["code"], -32600);
+    let batch = s
+        .handle(&json!([
+            {"jsonrpc":"2.0","id":8,"method":"ping"},
+            {"jsonrpc":"2.0","method":"notifications/initialized"}
+        ]))
+        .ok_or("no reply")?;
+    assert_eq!(
+        batch.as_array().map(Vec::len),
+        Some(1),
+        "notifications get no reply"
+    );
 
     // the call is on the graph as an agent step tagged with the client, with its why
     let steps = store.lock().map_err(|_| "lock")?.steps(&sid)?;
@@ -58,6 +81,7 @@ fn an_mcp_client_session_is_recorded() -> Result<(), Box<dyn std::error::Error>>
         .filter(|s| s.actor.kind == ActorKind::Agent)
         .collect();
     assert_eq!(agent.len(), 1, "only the valid call is recorded");
+    assert_eq!(agent[0].id, step_id, "structured content names the step");
     assert_eq!(agent[0].actor.model.as_deref(), Some("mcp:claude-code"));
     assert_eq!(
         agent[0].intent.as_ref().and_then(|i| i.note.as_deref()),

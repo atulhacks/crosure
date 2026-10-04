@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::policy::Profile;
-use crate::prompt::SYSTEM_PROMPT;
+use crate::prompt::system_prompt;
 
 /// One piece of a model turn, in a provider-neutral form.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -102,7 +102,8 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    /// The system prompt with the analyst's instructions appended.
+    /// The system prompt for this thread's profile, with the analyst's
+    /// instructions appended.
     ///
     /// ```
     /// let mut t = crosure_agent::Transcript::default();
@@ -111,10 +112,11 @@ impl Transcript {
     /// ```
     pub fn system_prompt(&self) -> String {
         let extra = self.instructions.trim();
+        let base = system_prompt(self.profile);
         if extra.is_empty() {
-            SYSTEM_PROMPT.to_string()
+            base
         } else {
-            format!("{SYSTEM_PROMPT}\n\nAnalyst instructions (follow these):\n{extra}")
+            format!("{base}\n\nAnalyst instructions (follow these):\n{extra}")
         }
     }
 

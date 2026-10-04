@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use crosure_agent::{
-    build_chain, list_model_info, presets, ModelInfo, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
-    Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
+    build_chain, list_model_info, presets, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
+    ModelInfo, Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
 };
 use serde::Serialize;
 
