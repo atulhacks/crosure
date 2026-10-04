@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::chain::{genesis_hash, hex_digest, step_hash};
-use crate::schema::SCHEMA_SQL;
+use crate::schema::{MIGRATIONS, SCHEMA_SQL, SCHEMA_VERSION};
 use crate::{NewStep, RecorderError, Relation, Step};
 
 /// One investigation of one binary.
@@ -49,9 +49,43 @@ impl Store {
         Self::init(Connection::open_in_memory()?)
     }
 
-    fn init(conn: Connection) -> Result<Self, RecorderError> {
+    /// Creates the tables, then brings an older store up to the current
+    /// format. A store from a newer Crosure is refused, not misread.
+    fn init(mut conn: Connection) -> Result<Self, RecorderError> {
+        let found: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if found > SCHEMA_VERSION {
+            return Err(RecorderError::NewerFormat {
+                found,
+                supported: SCHEMA_VERSION,
+            });
+        }
         conn.execute_batch(SCHEMA_SQL)?;
+        for version in found.max(1)..SCHEMA_VERSION {
+            let tx = conn.transaction()?;
+            if let Some(sql) = usize::try_from(version - 1)
+                .ok()
+                .and_then(|i| MIGRATIONS.get(i))
+            {
+                tx.execute_batch(sql)?;
+            }
+            tx.pragma_update(None, "user_version", version + 1)?;
+            tx.commit()?;
+        }
+        conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(Self { conn })
+    }
+
+    /// The store format version (`PRAGMA user_version`).
+    ///
+    /// ```
+    /// let store = crosure_recorder::Store::open_in_memory()?;
+    /// assert_eq!(store.format_version()?, 1);
+    /// # Ok::<(), crosure_recorder::RecorderError>(())
+    /// ```
+    pub fn format_version(&self) -> Result<i64, RecorderError> {
+        Ok(self
+            .conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))?)
     }
 
     /// Starts a new session for a binary.

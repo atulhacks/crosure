@@ -193,3 +193,42 @@ fn bad_input_and_stop_are_handled() -> Result<(), Box<dyn std::error::Error>> {
     ));
     Ok(())
 }
+
+#[test]
+fn a_reply_cut_off_mid_tool_call_does_not_break_the_thread(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (exec, _) = setup()?;
+    let cut = json!({
+        "stop_reason": "max_tokens",
+        "content": [
+            { "type": "text", "text": "Looking at imports" },
+            { "type": "tool_use", "id": "m1", "name": "list_imports", "input": {"why": "start"} }
+        ],
+        "usage": { "input_tokens": 10, "output_tokens": 16000 }
+    });
+    let (p, providers) = chain(ScriptedProvider::new(
+        "demo",
+        vec![cut, ScriptedProvider::done("done after the cut")],
+    ));
+    let report = run_agent(
+        &providers,
+        &exec,
+        &Collect::default(),
+        "Reverse this binary.",
+        &AgentConfig::default(),
+    )?;
+    assert_eq!(report, "done after the cut");
+
+    // The follow-up request answers the cut-off call, so the API accepts it.
+    let requests = p.requests.lock().map_err(|_| "lock")?;
+    let msgs = requests[1]["messages"].as_array().ok_or("messages")?;
+    let last = msgs.last().ok_or("no messages")?;
+    let content = last["content"].as_array().ok_or("content")?;
+    assert_eq!(content[0]["type"], "tool_result");
+    assert_eq!(content[0]["tool_use_id"], "m1");
+    assert_eq!(content[0]["is_error"], true);
+    assert!(content[1]["text"]
+        .as_str()
+        .is_some_and(|t| t.contains("output limit")));
+    Ok(())
+}

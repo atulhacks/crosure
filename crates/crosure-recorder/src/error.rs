@@ -15,4 +15,9 @@ pub enum RecorderError {
     /// A parent reference points at a step that is not in the session.
     #[error("unknown parent step: {0}")]
     UnknownParent(String),
+    /// The database was written by a newer Crosure.
+    #[error(
+        "store format {found} is newer than this Crosure supports ({supported}); update Crosure"
+    )]
+    NewerFormat { found: i64, supported: i64 },
 }

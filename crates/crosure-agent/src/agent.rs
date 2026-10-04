@@ -47,6 +47,9 @@ pub trait Executor: Send + Sync {
 
 const WRAP_UP: &str = "Step limit reached. Call record_verdict if you have not, then write the final report without further analysis.";
 
+/// Sent when a reply was cut off by the output limit.
+const CUT_OFF: &str = "Your last reply hit the output limit and was cut off. Continue from where you stopped, more briefly.";
+
 /// Runs a fresh conversation. See [`run_agent_turn`].
 pub fn run_agent(
     chain: &[Box<dyn Provider>],
@@ -176,16 +179,32 @@ pub fn run_agent_turn(
                         }
                     })
                     .collect();
-                let note = (turn_no == cfg.max_turns).then(|| WRAP_UP.to_string());
+                let note = (turn_no >= cfg.max_turns).then(|| WRAP_UP.to_string());
                 t.entries.push(Entry::Results { results, note });
             }
             Stop::PauseTurn => continue,
             Stop::MaxTokens => {
-                let e = AgentError::Protocol("the response hit the output limit".into());
-                sink.emit(AgentEvent::Failed {
-                    error: e.to_string(),
-                });
-                return Err(e);
+                // The turn is already in the transcript: answer every tool
+                // call in it, or the next request is rejected (tool_use
+                // without tool_result) and the thread can never continue.
+                let results: Vec<ToolResult> = tool_uses
+                    .into_iter()
+                    .map(|(id, _, _)| ToolResult {
+                        id,
+                        content: "Not run: your reply hit the output limit before this call \
+                                  was complete. Issue it again if you still need it."
+                            .into(),
+                        is_error: true,
+                    })
+                    .collect();
+                if results.is_empty() {
+                    t.push_user(CUT_OFF);
+                } else {
+                    t.entries.push(Entry::Results {
+                        results,
+                        note: Some(CUT_OFF.into()),
+                    });
+                }
             }
             Stop::EndTurn | Stop::Refusal { .. } => {
                 sink.emit(AgentEvent::Finished {

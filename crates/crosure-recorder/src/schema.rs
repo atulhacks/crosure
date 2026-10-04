@@ -1,3 +1,12 @@
+/// Store format version, kept in SQLite's `PRAGMA user_version`. Databases
+/// from before versioning read as 0 and have the version-1 layout.
+pub(crate) const SCHEMA_VERSION: i64 = 1;
+
+/// `MIGRATIONS[i]` upgrades version `i + 1` to `i + 2`; each runs in one
+/// transaction. Never rewrite a step's `json` or `hash`: the hash chain
+/// covers them. Add columns or tables instead, and upcast old steps on read.
+pub(crate) const MIGRATIONS: &[&str] = &[];
+
 /// Tables: sessions, steps (append-only, one JSON document per step) and
 /// content-addressed blobs for full tool outputs.
 pub(crate) const SCHEMA_SQL: &str = "
