@@ -111,42 +111,18 @@ impl Op {
     }
 
     /// The canonical console form of the op, stored as the step's command
-    /// whatever the origin, so datasets see one action vocabulary.
+    /// whatever the origin, so datasets see one action vocabulary. It parses
+    /// back to the same op.
     ///
     /// ```
-    /// use crosure_session::Op;
+    /// use crosure_session::{parse_command, Op};
     /// let op = Op::XrefsTo { target: "strcmp".into() };
     /// assert_eq!(op.command(), "xt strcmp");
+    /// let hex = Op::Hex { target: "0x1000".into(), len: None };
+    /// assert_eq!(parse_command(&hex.command())?, hex);
+    /// # Ok::<(), crosure_session::SessionError>(())
     /// ```
     pub fn command(&self) -> String {
-        match self {
-            Op::Info => "info".into(),
-            Op::Functions { filter } => match filter {
-                Some(f) => format!("fns {f}"),
-                None => "fns".into(),
-            },
-            Op::Disasm { target } => format!("dis {target}"),
-            Op::Decompile { target } => format!("dec {target}"),
-            Op::XrefsTo { target } => format!("xt {target}"),
-            Op::XrefsFrom { target } => format!("xf {target}"),
-            Op::Strings { filter, .. } => match filter {
-                Some(f) => format!("str {f}"),
-                None => "str".into(),
-            },
-            Op::Imports => "imp".into(),
-            Op::Hex { target, len } => format!("hex {target} {}", len.unwrap_or(256)),
-            Op::Rename { target, name } => format!("ren {target} {name}"),
-            Op::Comment { target, text } => format!("cmt {target} {text}"),
-            Op::Hypothesis { text } => format!("hyp {text}"),
-            Op::Finding { text } => format!("find {text}"),
-            Op::Verdict {
-                verdict,
-                family,
-                text,
-            } => match family {
-                Some(f) => format!("verdict {verdict} {f} {text}"),
-                None => format!("verdict {verdict} - {text}"),
-            },
-        }
+        crate::console::render(self)
     }
 }

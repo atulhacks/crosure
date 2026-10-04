@@ -49,7 +49,7 @@ pub fn run_console(
 
 /// Console help text.
 #[tauri::command]
-pub fn console_help() -> &'static str {
+pub fn console_help() -> String {
     core::console_help()
 }
 

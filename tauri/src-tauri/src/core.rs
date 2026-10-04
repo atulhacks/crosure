@@ -5,7 +5,7 @@ use std::path::Path;
 use crosure_engine::{BinaryInfo, FunctionInfo};
 use crosure_graph::InvestigationGraph;
 use crosure_recorder::{Intent, ParentRef, Session, Step, VerifyReport};
-use crosure_session::{parse_command, Op, Origin, Outcome, Workspace, CONSOLE_HELP};
+use crosure_session::{parse_command, Op, Origin, Outcome, Workspace};
 use serde::Serialize;
 use serde_json::json;
 
@@ -84,9 +84,9 @@ pub fn run_console(state: &AppState, line: String, parent: Option<ParentRef>) ->
         .map_err(err)
 }
 
-/// Console help text.
-pub fn console_help() -> &'static str {
-    CONSOLE_HELP
+/// Console help text, generated from the op registry.
+pub fn console_help() -> String {
+    crosure_session::console_help()
 }
 
 /// Adds intent/tags to an earlier step (recorded as a new step).

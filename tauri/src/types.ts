@@ -229,6 +229,7 @@ export interface DatasetExport {
 
 export type Op =
   | { op: "info" }
+  | { op: "functions"; filter: string | null }
   | { op: "disasm"; target: string }
   | { op: "decompile"; target: string }
   | { op: "xrefs_to"; target: string }

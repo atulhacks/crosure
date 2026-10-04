@@ -16,9 +16,6 @@ pub enum Profile {
     Ask,
 }
 
-/// Tools that change the analysis state others will read.
-pub const WRITE_TOOLS: [&str; 2] = ["rename_function", "add_comment"];
-
 impl Profile {
     /// Whether `tool` is offered to the model in this profile.
     ///
@@ -32,7 +29,7 @@ impl Profile {
     pub fn allows(self, tool: &str) -> bool {
         match self {
             Profile::Investigate => true,
-            Profile::ReadOnly => !WRITE_TOOLS.contains(&tool),
+            Profile::ReadOnly => !crosure_session::is_write_tool(tool),
             Profile::Ask => false,
         }
     }
@@ -69,10 +66,10 @@ impl Permissions {
     /// A preset: confirm renames, comments and the verdict; allow the rest.
     pub fn confirm_changes() -> Self {
         Self(
-            WRITE_TOOLS
+            crosure_session::OPS
                 .iter()
-                .chain(["record_verdict"].iter())
-                .map(|t| (t.to_string(), Permission::Confirm))
+                .filter(|s| s.writes || s.tool == "record_verdict")
+                .map(|s| (s.tool.to_string(), Permission::Confirm))
                 .collect(),
         )
     }

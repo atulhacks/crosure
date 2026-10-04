@@ -1,0 +1,356 @@
+[
+  {
+    "description": "Format, architecture, entry point, hashes and sections of the binary.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "binary_info",
+    "strict": true
+  },
+  {
+    "description": "List discovered functions with addresses and sizes. Filter by substring to narrow.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "filter": {
+          "description": "Substring to match, or null for all.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "filter",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "list_functions",
+    "strict": true
+  },
+  {
+    "description": "Disassemble a whole function. Calls are annotated with callee names, data references with string literals.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Function name (e.g. main, strcmp@plt) or address (0x...).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "disassemble",
+    "strict": true
+  },
+  {
+    "description": "Pseudo-C of a whole function (rz-ghidra), using the current names. Faster to read than disassembly; may be unavailable on this machine, in which case use disassemble.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Function name (e.g. main, strcmp@plt) or address (0x...).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "decompile",
+    "strict": true
+  },
+  {
+    "description": "Who references an address: callers of a function or import, users of a string or global.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Function, import, or address (string addresses come from search_strings).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "xrefs_to",
+    "strict": true
+  },
+  {
+    "description": "Everything a function calls or references.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "function": {
+          "description": "Function name (e.g. main, strcmp@plt) or address (0x...).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "function",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "xrefs_from",
+    "strict": true
+  },
+  {
+    "description": "Printable strings (ASCII and UTF-16) with addresses and sections. Filter by case-insensitive substring.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "filter": {
+          "description": "Substring such as http, .exe, password; null for all.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "filter",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "search_strings",
+    "strict": true
+  },
+  {
+    "description": "Imported functions grouped by library, with the address code uses to call each.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "list_imports",
+    "strict": true
+  },
+  {
+    "description": "Hex dump of raw bytes at an address (max 4096).",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "description": "Address (0x...) or symbol.",
+          "type": "string"
+        },
+        "length": {
+          "description": "Bytes to read; null for 256.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "length",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "read_bytes",
+    "strict": true
+  },
+  {
+    "description": "Give a function a descriptive name once its purpose is clear.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "new_name": {
+          "description": "snake_case name, no spaces.",
+          "type": "string"
+        },
+        "target": {
+          "description": "Function name (e.g. main, strcmp@plt) or address (0x...).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "new_name",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "rename_function",
+    "strict": true
+  },
+  {
+    "description": "Attach a note to an address.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "description": "Address (0x...).",
+          "type": "string"
+        },
+        "text": {
+          "description": "The comment.",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "text",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "add_comment",
+    "strict": true
+  },
+  {
+    "description": "Pin a hypothesis you are about to test.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "description": "The hypothesis.",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "record_hypothesis",
+    "strict": true
+  },
+  {
+    "description": "Record a confirmed finding with its evidence.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "description": "The finding and the evidence for it.",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "record_finding",
+    "strict": true
+  },
+  {
+    "description": "Final classification of the binary. Call once, at the end.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "description": "Malware family if known, else null.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "description": "One or two sentences justifying the verdict.",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "malicious",
+            "suspicious",
+            "benign",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "verdict",
+        "family",
+        "summary",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "record_verdict",
+    "strict": true
+  }
+]

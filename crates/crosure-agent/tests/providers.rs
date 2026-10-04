@@ -253,3 +253,42 @@ fn old_settings_without_new_fields_still_load() {
     assert_eq!(p.id, "zai");
     assert!(p.headers.is_empty() && p.reasoning_effort.is_none() && !p.max_completion_tokens);
 }
+
+#[test]
+fn tool_schemas_are_unchanged_by_the_registry() -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/tool_definitions.json"))?;
+    assert_eq!(crosure_agent::tool_definitions(), snapshot);
+    Ok(())
+}
+
+#[test]
+fn every_tool_call_maps_to_the_same_op_as_its_command() -> Result<(), Box<dyn std::error::Error>> {
+    for spec in crosure_session::OPS {
+        let mut input = serde_json::Map::new();
+        input.insert("why".into(), json!("test"));
+        let mut line = vec![spec.command.to_string()];
+        for a in spec.args {
+            let (v, w) = match a.kind {
+                crosure_session::ArgKind::Count { .. } => (json!(64), "64".to_string()),
+                crosure_session::ArgKind::Choice(o) => (json!(o[0]), o[0].to_string()),
+                crosure_session::ArgKind::Text => (json!("some text"), "some text".into()),
+                _ => (json!("check_password"), "check_password".into()),
+            };
+            if let Some(f) = a.tool_field {
+                input.insert(f.into(), v);
+                if a.placement == crosure_session::Placement::Positional {
+                    line.push(w);
+                }
+            }
+        }
+        let call = parse_tool_call(spec.tool, &serde_json::Value::Object(input))?;
+        assert_eq!(
+            call.op,
+            crosure_session::parse_command(&line.join(" "))?,
+            "{}",
+            spec.tool
+        );
+    }
+    Ok(())
+}

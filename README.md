@@ -167,21 +167,27 @@ Try it on the bundled benign crackme:
 
 ```
 info                         binary info
+fns [filter]                 list functions
 dis <fn|addr>                disassemble function
-dec <fn|addr>                decompile function (needs rizin + rz-ghidra)
+dec <fn|addr>                decompile function (rizin + rz-ghidra)
 xt <fn|addr>                 xrefs to
 xf <fn|addr>                 xrefs from function
-str [filter]                 strings
+str [--min n] [filter]       strings (optionally filtered; --min sets the minimum length, default 4)
 imp                          imports
-hex <addr> [len]             hex dump
+hex <addr> [len]             hex dump (default 256 bytes, max 4096)
 ren <fn|addr> <name>         rename function
 cmt <addr> <text>            comment
 hyp <text>                   pin a hypothesis
 find <text>                  record a finding
-verdict <malicious|benign|unknown> <family|-> <text>
+verdict <verdict> [family|-] <text>  final verdict: malicious, suspicious, benign or unknown
 ```
 
-r2-style aliases also work (`pdf`, `pdg`, `axt`, `iz`, `ii`, `px`, `afn`).
+r2-style aliases also work (`i`, `afl`, `pdf`, `pdg`, `axt`, `axf`, `iz`, `ii`, `px`, `afn`, `CC`).
+
+Each op is declared once, in `crates/crosure-session/src/table.rs`. The
+console grammar and help, the agent and MCP tool schemas, and the write-tool
+list are all generated from that table, so they cannot drift apart. Every
+command an op records parses back to the same op.
 
 ## Safety
 

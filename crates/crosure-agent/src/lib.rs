@@ -25,7 +25,7 @@ pub use agent::{run_agent, run_agent_turn, AgentConfig, Executed, Executor};
 pub use error::AgentError;
 pub use events::{AgentEvent, Sink};
 pub use executor::SessionExecutor;
-pub use policy::{ApprovalRequest, Permission, Permissions, Profile, WRITE_TOOLS};
+pub use policy::{ApprovalRequest, Permission, Permissions, Profile};
 pub use providers::{
     anthropic_compatible, anthropic_request, build_chain, build_provider, list_models,
     openai_request, presets, AgentSettings, AnthropicProvider, Extras, KeySource, OpenAiProvider,

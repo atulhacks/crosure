@@ -20,12 +20,18 @@ mod console;
 mod decomp;
 mod error;
 mod op;
+mod registry;
 mod run;
 mod summary;
+mod table;
 mod workspace;
 
-pub use console::{parse_command, CONSOLE_HELP};
+pub use console::{check_arg, parse_command};
 pub use error::SessionError;
 pub use op::{Op, Origin};
+pub use registry::{
+    console_help, is_write_tool, spec_for_command, spec_for_tool, ArgKind, ArgSpec, OpSpec,
+    Placement, OPS, VERDICTS,
+};
 pub use run::{Author, Outcome};
 pub use workspace::Workspace;

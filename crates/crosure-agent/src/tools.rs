@@ -1,4 +1,4 @@
-use crosure_session::Op;
+use crosure_session::{check_arg, spec_for_tool, ArgKind, ArgSpec, Op, OPS};
 use serde_json::{json, Value};
 
 /// One parsed tool call: the op to run and the model's stated reason.
@@ -8,33 +8,30 @@ pub struct ToolCall {
     pub why: String,
 }
 
-fn tool(name: &str, description: &str, props: Value, required: &[&str]) -> Value {
-    let mut properties = props;
-    properties["why"] = json!({ "type": "string", "description": "One sentence: what you expect to learn from this step." });
-    let mut req: Vec<&str> = required.to_vec();
-    req.push("why");
-    json!({
-        "name": name,
-        "description": description,
-        "strict": true,
-        "input_schema": {
-            "type": "object",
-            "properties": properties,
-            "required": req,
-            "additionalProperties": false,
-        }
-    })
+const WHY: &str = "One sentence: what you expect to learn from this step.";
+
+/// JSON schema of one argument as the agent sees it.
+fn arg_schema(a: &ArgSpec) -> Value {
+    let base = match a.kind {
+        ArgKind::Count { .. } => "integer",
+        _ => "string",
+    };
+    let mut v = if a.required {
+        json!({ "type": base })
+    } else {
+        json!({ "type": [base, "null"] })
+    };
+    if let ArgKind::Choice(options) = a.kind {
+        v["enum"] = json!(options);
+    }
+    if !a.desc.is_empty() {
+        v["description"] = json!(a.desc);
+    }
+    v
 }
 
-fn nullable_string(desc: &str) -> Value {
-    json!({ "type": ["string", "null"], "description": desc })
-}
-
-fn string(desc: &str) -> Value {
-    json!({ "type": "string", "description": desc })
-}
-
-/// The tools Claude can call. Each maps to one recorded Crosure op.
+/// The tools a model can call, generated from the op registry
+/// ([`crosure_session::OPS`]). Each maps to one recorded Crosure op.
 ///
 /// ```
 /// let tools = crosure_agent::tool_definitions();
@@ -42,40 +39,36 @@ fn string(desc: &str) -> Value {
 ///     .as_array().is_some_and(|r| r.contains(&serde_json::json!("why"))))));
 /// ```
 pub fn tool_definitions() -> Value {
-    let target = "Function name (e.g. main, strcmp@plt) or address (0x...).";
-    json!([
-        tool("binary_info", "Format, architecture, entry point, hashes and sections of the binary.", json!({}), &[]),
-        tool("list_functions", "List discovered functions with addresses and sizes. Filter by substring to narrow.",
-            json!({ "filter": nullable_string("Substring to match, or null for all.") }), &["filter"]),
-        tool("disassemble", "Disassemble a whole function. Calls are annotated with callee names, data references with string literals.",
-            json!({ "target": string(target) }), &["target"]),
-        tool("decompile", "Pseudo-C of a whole function (rz-ghidra), using the current names. Faster to read than disassembly; may be unavailable on this machine, in which case use disassemble.",
-            json!({ "target": string(target) }), &["target"]),
-        tool("xrefs_to", "Who references an address: callers of a function or import, users of a string or global.",
-            json!({ "target": string("Function, import, or address (string addresses come from search_strings).") }), &["target"]),
-        tool("xrefs_from", "Everything a function calls or references.",
-            json!({ "function": string(target) }), &["function"]),
-        tool("search_strings", "Printable strings (ASCII and UTF-16) with addresses and sections. Filter by case-insensitive substring.",
-            json!({ "filter": nullable_string("Substring such as http, .exe, password; null for all.") }), &["filter"]),
-        tool("list_imports", "Imported functions grouped by library, with the address code uses to call each.", json!({}), &[]),
-        tool("read_bytes", "Hex dump of raw bytes at an address (max 4096).",
-            json!({ "address": string("Address (0x...) or symbol."), "length": { "type": ["integer", "null"], "description": "Bytes to read; null for 256." } }),
-            &["address", "length"]),
-        tool("rename_function", "Give a function a descriptive name once its purpose is clear.",
-            json!({ "target": string(target), "new_name": string("snake_case name, no spaces.") }), &["target", "new_name"]),
-        tool("add_comment", "Attach a note to an address.",
-            json!({ "address": string("Address (0x...)."), "text": string("The comment.") }), &["address", "text"]),
-        tool("record_hypothesis", "Pin a hypothesis you are about to test.",
-            json!({ "text": string("The hypothesis.") }), &["text"]),
-        tool("record_finding", "Record a confirmed finding with its evidence.",
-            json!({ "text": string("The finding and the evidence for it.") }), &["text"]),
-        tool("record_verdict", "Final classification of the binary. Call once, at the end.",
-            json!({
-                "verdict": { "type": "string", "enum": ["malicious", "suspicious", "benign", "unknown"] },
-                "family": nullable_string("Malware family if known, else null."),
-                "summary": string("One or two sentences justifying the verdict."),
-            }), &["verdict", "family", "summary"]),
-    ])
+    Value::Array(
+        OPS.iter()
+            .map(|spec| {
+                let mut properties = serde_json::Map::new();
+                let mut required = Vec::new();
+                for a in spec.args {
+                    if let Some(name) = a.tool_field {
+                        properties.insert(name.into(), arg_schema(a));
+                        required.push(name);
+                    }
+                }
+                properties.insert(
+                    "why".into(),
+                    json!({ "type": "string", "description": WHY }),
+                );
+                required.push("why");
+                json!({
+                    "name": spec.tool,
+                    "description": spec.summary,
+                    "strict": true,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required,
+                        "additionalProperties": false,
+                    }
+                })
+            })
+            .collect(),
+    )
 }
 
 /// The tools offered in `profile` (all of them for `Investigate`, none for `Ask`).
@@ -98,22 +91,8 @@ pub fn tool_definitions_for(profile: crate::Profile) -> Value {
     )
 }
 
-fn s(input: &Value, key: &str) -> Result<String, String> {
-    input[key]
-        .as_str()
-        .map(str::to_string)
-        .filter(|v| !v.trim().is_empty())
-        .ok_or_else(|| format!("missing or empty `{key}`"))
-}
-
-fn opt(input: &Value, key: &str) -> Option<String> {
-    input[key]
-        .as_str()
-        .map(str::to_string)
-        .filter(|v| !v.trim().is_empty())
-}
-
-/// Validates a `tool_use` block's input and maps it to an op.
+/// Validates a `tool_use` block's input and maps it to an op, using the
+/// same argument rules as the console.
 ///
 /// ```
 /// use serde_json::json;
@@ -126,65 +105,14 @@ pub fn parse_tool_call(name: &str, input: &Value) -> Result<ToolCall, String> {
     if input.get("__unparsed").is_some() {
         return Err("tool arguments were not valid JSON".into());
     }
-    let why = opt(input, "why").unwrap_or_default();
-    let op = match name {
-        "binary_info" => Op::Info,
-        "list_functions" => Op::Functions {
-            filter: opt(input, "filter"),
-        },
-        "disassemble" => Op::Disasm {
-            target: s(input, "target")?,
-        },
-        "decompile" => Op::Decompile {
-            target: s(input, "target")?,
-        },
-        "xrefs_to" => Op::XrefsTo {
-            target: s(input, "target")?,
-        },
-        "xrefs_from" => Op::XrefsFrom {
-            target: s(input, "function")?,
-        },
-        "search_strings" => Op::Strings {
-            filter: opt(input, "filter"),
-            min_len: None,
-        },
-        "list_imports" => Op::Imports,
-        "read_bytes" => Op::Hex {
-            target: s(input, "address")?,
-            len: input["length"].as_u64().map(|n| n.min(4096) as usize),
-        },
-        "rename_function" => {
-            let new_name = s(input, "new_name")?;
-            if new_name.contains(char::is_whitespace) {
-                return Err("`new_name` must not contain spaces".into());
-            }
-            Op::Rename {
-                target: s(input, "target")?,
-                name: new_name,
-            }
-        }
-        "add_comment" => Op::Comment {
-            target: s(input, "address")?,
-            text: s(input, "text")?,
-        },
-        "record_hypothesis" => Op::Hypothesis {
-            text: s(input, "text")?,
-        },
-        "record_finding" => Op::Finding {
-            text: s(input, "text")?,
-        },
-        "record_verdict" => {
-            let verdict = s(input, "verdict")?;
-            if !["malicious", "suspicious", "benign", "unknown"].contains(&verdict.as_str()) {
-                return Err(format!("unknown verdict `{verdict}`"));
-            }
-            Op::Verdict {
-                verdict,
-                family: opt(input, "family"),
-                text: s(input, "summary")?,
-            }
-        }
-        other => return Err(format!("unknown tool `{other}`")),
-    };
+    let spec = spec_for_tool(name).ok_or_else(|| format!("unknown tool `{name}`"))?;
+    let why = input["why"].as_str().unwrap_or_default().trim().to_string();
+    let mut fields = serde_json::Map::new();
+    for a in spec.args {
+        let value = a.tool_field.map_or(&Value::Null, |f| &input[f]);
+        fields.insert(a.field.into(), check_arg(a, value)?);
+    }
+    fields.insert("op".into(), json!(spec.op));
+    let op: Op = serde_json::from_value(Value::Object(fields)).map_err(|e| e.to_string())?;
     Ok(ToolCall { op, why })
 }
