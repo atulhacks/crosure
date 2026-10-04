@@ -1,10 +1,11 @@
 use serde_json::Value;
 
-use crate::policy::{ApprovalRequest, Permission, Permissions};
+use crate::call::{run_one, CallCtx};
+use crate::context::{elide_old_results, estimate_tokens, is_context_overflow};
+use crate::policy::Permissions;
 use crate::providers::Provider;
-use crate::render::render_result;
-use crate::tools::{parse_tool_call, ToolCall};
-use crate::{AgentError, AgentEvent, Block, Entry, Profile, Sink, Stop, ToolResult, Transcript};
+use crate::tools::ToolCall;
+use crate::{AgentError, AgentEvent, Block, Entry, Sink, Stop, ToolResult, Transcript};
 
 /// Limits and permissions for one run.
 #[derive(Clone, Debug)]
@@ -13,6 +14,10 @@ pub struct AgentConfig {
     pub max_turns: u32,
     /// Allow / confirm / deny per tool.
     pub permissions: Permissions,
+    /// Estimated request size (tokens) above which old tool results are
+    /// elided, down to two thirds of it (in one go, so prompt caching keeps
+    /// working). Providers that reject a long prompt trigger the same.
+    pub context_tokens: usize,
 }
 
 impl Default for AgentConfig {
@@ -20,6 +25,7 @@ impl Default for AgentConfig {
         Self {
             max_turns: 40,
             permissions: Permissions::default(),
+            context_tokens: 100_000,
         }
     }
 }
@@ -90,6 +96,7 @@ pub fn run_agent_turn(
         t.push_user(prompt);
     }
     let (mut input, mut output, mut tool_calls) = (0u64, 0u64, 0u32);
+    let mut overflow_retried = false;
 
     for turn_no in 1..=cfg.max_turns + 3 {
         if sink.should_stop() {
@@ -97,8 +104,25 @@ pub fn run_agent_turn(
             return Ok(String::new());
         }
         let provider = &chain[cur];
+        if estimate_tokens(t) > cfg.context_tokens {
+            trim(t, sink, cfg.context_tokens * 2 / 3);
+        }
         let turn = match provider.next(t) {
-            Ok(r) => r,
+            Ok(r) => {
+                overflow_retried = false;
+                r
+            }
+            Err(e) if !overflow_retried && is_context_overflow(&e.to_string()) => {
+                // Too long for this model: elide harder and try once more.
+                overflow_retried = true;
+                if trim(t, sink, estimate_tokens(t) / 2) > 0 {
+                    continue;
+                }
+                sink.emit(AgentEvent::Failed {
+                    error: format!("{}: {e}", provider.id()),
+                });
+                return Err(e);
+            }
             Err(e) => {
                 sink.emit(AgentEvent::Failed {
                     error: format!("{}: {e}", provider.id()),
@@ -225,107 +249,14 @@ pub fn run_agent_turn(
     Err(e)
 }
 
-struct CallCtx<'a> {
-    exec: &'a dyn Executor,
-    sink: &'a dyn Sink,
-    by: String,
-    profile: Profile,
-    permissions: &'a Permissions,
-}
-
-fn failed(
-    ctx: &CallCtx<'_>,
-    name: &str,
-    command: String,
-    why: String,
-    error: String,
-) -> (String, bool) {
-    ctx.sink.emit(AgentEvent::ToolCall {
-        tool: name.into(),
-        command,
-        why,
-        step_id: None,
-        summary: None,
-        error: Some(error.clone()),
-    });
-    (format!("Error: {error}"), true)
-}
-
-fn run_one(ctx: &CallCtx<'_>, id: &str, name: &str, input: &Value) -> (String, bool) {
-    if !ctx.profile.allows(name) {
-        return failed(
-            ctx,
-            name,
-            name.into(),
-            String::new(),
-            format!("`{name}` is not available in this profile"),
-        );
+/// Elides old tool results down to `target` tokens and reports it.
+fn trim(t: &mut Transcript, sink: &dyn Sink, target: usize) -> usize {
+    let elided = elide_old_results(t, target);
+    if elided > 0 {
+        sink.emit(AgentEvent::ContextTrimmed {
+            elided,
+            tokens: estimate_tokens(t),
+        });
     }
-    let call = match parse_tool_call(name, input) {
-        Ok(c) => c,
-        Err(e) => {
-            return failed(
-                ctx,
-                name,
-                name.into(),
-                String::new(),
-                format!("invalid input: {e}"),
-            )
-        }
-    };
-    let command = call.op.command();
-    match ctx.permissions.get(name) {
-        Permission::Allow => {}
-        Permission::Deny => {
-            return failed(
-                ctx,
-                name,
-                command,
-                call.why,
-                "blocked by tool permissions".into(),
-            )
-        }
-        Permission::Confirm => {
-            let request = ApprovalRequest {
-                id: id.into(),
-                tool: name.into(),
-                command: command.clone(),
-                why: call.why.clone(),
-            };
-            ctx.sink.emit(AgentEvent::ApprovalRequested {
-                request: request.clone(),
-            });
-            let allowed = ctx.sink.approve(&request);
-            ctx.sink.emit(AgentEvent::ApprovalResolved {
-                id: id.into(),
-                allowed,
-            });
-            if !allowed {
-                return failed(
-                    ctx,
-                    name,
-                    command,
-                    call.why,
-                    "the analyst declined this action".into(),
-                );
-            }
-        }
-    }
-    match ctx.exec.execute(&call, &ctx.by) {
-        Ok(done) => {
-            ctx.sink.emit(AgentEvent::ToolCall {
-                tool: name.into(),
-                command: done.command.clone(),
-                why: call.why.clone(),
-                step_id: Some(done.step_id.clone()),
-                summary: Some(done.summary.clone()),
-                error: None,
-            });
-            (
-                render_result(&done.kind, &done.summary, &done.result),
-                false,
-            )
-        }
-        Err(e) => failed(ctx, name, command, call.why, e),
-    }
+    elided
 }

@@ -167,12 +167,12 @@ Try it on the bundled benign crackme:
 
 ```
 info                         binary info
-fns [filter]                 list functions
-dis <fn|addr>                disassemble function
-dec <fn|addr>                decompile function (rizin + rz-ghidra)
-xt <fn|addr>                 xrefs to
-xf <fn|addr>                 xrefs from function
-str [--min n] [filter]       strings (optionally filtered; --min sets the minimum length, default 4)
+fns [--from line] [filter]   list functions
+dis [--from line] <fn|addr>  disassemble function
+dec [--from line] <fn|addr>  decompile function (rizin + rz-ghidra)
+xt [--from line] <fn|addr>   xrefs to
+xf [--from line] <fn|addr>   xrefs from function
+str [--min n] [--from line] [filter]  strings (--min: minimum length, default 4)
 imp                          imports
 hex <addr> [len]             hex dump (default 256 bytes, max 4096)
 ren <fn|addr> <name>         rename function
@@ -181,6 +181,9 @@ hyp <text>                   pin a hypothesis
 find <text>                  record a finding
 verdict <verdict> [family|-] <text>  final verdict: malicious, suspicious, benign or unknown
 ```
+
+`--from` pages long results: the agent sees at most 20,000 characters per
+call, and a cut result says which line to continue from.
 
 r2-style aliases also work (`i`, `afl`, `pdf`, `pdg`, `axt`, `axf`, `iz`, `ii`, `px`, `afn`, `CC`).
 

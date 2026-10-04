@@ -64,6 +64,9 @@ impl Sink for Print {
             }
             AgentEvent::Failed { error } => eprintln!("! {error}"),
             AgentEvent::Stopped => eprintln!("· stopped"),
+            AgentEvent::ContextTrimmed { elided, tokens } => {
+                eprintln!("· elided {elided} old tool results (~{tokens} tokens now)")
+            }
             AgentEvent::Usage { .. }
             | AgentEvent::ApprovalRequested { .. }
             | AgentEvent::ApprovalResolved { .. } => {}

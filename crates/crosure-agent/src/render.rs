@@ -17,14 +17,18 @@ fn rows(items: &Value, line: impl Fn(&Value) -> String) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn clip(lines: Vec<String>, header: String) -> String {
+/// The header, then `lines` from `offset`, cut to fit the budget. A cut
+/// says exactly where to continue.
+fn clip(lines: Vec<String>, header: String, offset: usize) -> String {
     let mut out = header;
     let total = lines.len();
-    for (i, l) in lines.iter().enumerate() {
+    if offset > 0 {
+        out.push_str(&format!("\n[lines {offset}..{total} of {total}]"));
+    }
+    for (i, l) in lines.iter().enumerate().skip(offset) {
         if out.len() + l.len() + 1 > MAX_CHARS {
             out.push_str(&format!(
-                "\n[truncated: {} more lines; narrow with a filter]",
-                total - i
+                "\n[truncated at line {i} of {total}: call again with offset {i} to continue, or narrow with a filter]"
             ));
             break;
         }
@@ -35,15 +39,15 @@ fn clip(lines: Vec<String>, header: String) -> String {
 }
 
 /// Renders an op's result as compact text for the model (not JSON, which
-/// costs ~3x the tokens for the same listing).
+/// costs ~3x the tokens for the same listing), starting at line `offset`.
 ///
 /// ```
 /// use serde_json::json;
 /// let r = json!({"functions": [{"addr": 4489, "name": "decode", "size": 80, "source": "symbol"}]});
-/// let t = crosure_agent::render_result("functions", "1 functions", &r);
+/// let t = crosure_agent::render_result("functions", "1 functions", &r, 0);
 /// assert!(t.contains("0x1189 decode (80 bytes)"));
 /// ```
-pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
+pub fn render_result(kind: &str, summary: &str, r: &Value, offset: usize) -> String {
     let header = summary.to_string();
     match kind {
         "functions" => clip(
@@ -56,6 +60,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                 )
             }),
             header,
+            offset,
         ),
         "disasm" => {
             let leaders: Vec<u64> = r["blocks"]
@@ -102,6 +107,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                     text(&r["function"]["name"]),
                     hex(&r["function"]["addr"])
                 ),
+                offset,
             )
         }
         "decompile" => clip(
@@ -111,6 +117,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                 text(&r["function"]["name"]),
                 hex(&r["function"]["addr"])
             ),
+            offset,
         ),
         "xref" => {
             let names = r["names"].as_array();
@@ -130,6 +137,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                     ),
                 }),
                 header,
+                offset,
             )
         }
         "strings" => clip(
@@ -142,6 +150,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                 )
             }),
             header,
+            offset,
         ),
         "imports" => clip(
             rows(&r["imports"], |i| {
@@ -153,6 +162,7 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
                 )
             }),
             header,
+            offset,
         ),
         "navigate" => format!(
             "{header}\n{}",
@@ -168,7 +178,16 @@ pub fn render_result(kind: &str, summary: &str, r: &Value) -> String {
             if let Some(o) = v.as_object_mut() {
                 o.remove("path");
             }
-            format!("{header}\n{v}")
+            let mut out = format!("{header}\n{v}");
+            if out.len() > MAX_CHARS {
+                let cut = (0..=MAX_CHARS)
+                    .rev()
+                    .find(|i| out.is_char_boundary(*i))
+                    .unwrap_or(0);
+                out.truncate(cut);
+                out.push_str("\n[truncated]");
+            }
+            out
         }
         _ => header,
     }

@@ -33,6 +33,17 @@ const fn text(tool_field: &'static str, desc: &'static str) -> ArgSpec {
     pos("text", tool_field, ArgKind::Text, true, "text", desc)
 }
 
+/// `--from n`: first result line to show the agent, for paging.
+const OFFSET: ArgSpec = ArgSpec {
+    field: "offset",
+    tool_field: Some("offset"),
+    kind: ArgKind::Count { max: 10_000_000 },
+    required: false,
+    placement: Placement::Flag("--from"),
+    hint: "line",
+    desc: "Result line to start from, as given by a truncation note; null for the start.",
+};
+
 /// Every op, in the order tools and help are listed.
 pub static OPS: &[OpSpec] = &[
     OpSpec {
@@ -53,7 +64,7 @@ pub static OPS: &[OpSpec] = &[
         summary: "List discovered functions with addresses and sizes. Filter by substring to narrow.",
         help: "list functions",
         writes: false,
-        args: &[pos("filter", "filter", ArgKind::Text, false, "filter", "Substring to match, or null for all.")],
+        args: &[pos("filter", "filter", ArgKind::Text, false, "filter", "Substring to match, or null for all."), OFFSET],
     },
     OpSpec {
         op: "disasm",
@@ -63,7 +74,7 @@ pub static OPS: &[OpSpec] = &[
         summary: "Disassemble a whole function. Calls are annotated with callee names, data references with string literals.",
         help: "disassemble function",
         writes: false,
-        args: &[target("target", "fn|addr", TARGET_DESC)],
+        args: &[target("target", "fn|addr", TARGET_DESC), OFFSET],
     },
     OpSpec {
         op: "decompile",
@@ -73,7 +84,7 @@ pub static OPS: &[OpSpec] = &[
         summary: "Pseudo-C of a whole function (rz-ghidra), using the current names. Faster to read than disassembly; may be unavailable on this machine, in which case use disassemble.",
         help: "decompile function (rizin + rz-ghidra)",
         writes: false,
-        args: &[target("target", "fn|addr", TARGET_DESC)],
+        args: &[target("target", "fn|addr", TARGET_DESC), OFFSET],
     },
     OpSpec {
         op: "xrefs_to",
@@ -83,7 +94,7 @@ pub static OPS: &[OpSpec] = &[
         summary: "Who references an address: callers of a function or import, users of a string or global.",
         help: "xrefs to",
         writes: false,
-        args: &[target("target", "fn|addr", "Function, import, or address (string addresses come from search_strings).")],
+        args: &[target("target", "fn|addr", "Function, import, or address (string addresses come from search_strings)."), OFFSET],
     },
     OpSpec {
         op: "xrefs_from",
@@ -93,7 +104,7 @@ pub static OPS: &[OpSpec] = &[
         summary: "Everything a function calls or references.",
         help: "xrefs from function",
         writes: false,
-        args: &[target("function", "fn|addr", TARGET_DESC)],
+        args: &[target("function", "fn|addr", TARGET_DESC), OFFSET],
     },
     OpSpec {
         op: "strings",
@@ -114,6 +125,7 @@ pub static OPS: &[OpSpec] = &[
                 desc: "",
             },
             pos("filter", "filter", ArgKind::Text, false, "filter", "Substring such as http, .exe, password; null for all."),
+            OFFSET,
         ],
     },
     OpSpec {

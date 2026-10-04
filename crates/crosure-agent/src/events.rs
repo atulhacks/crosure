@@ -54,6 +54,8 @@ pub enum AgentEvent {
     ApprovalRequested { request: ApprovalRequest },
     /// The analyst decided.
     ApprovalResolved { id: String, allowed: bool },
+    /// Old tool results were elided to stay within the context window.
+    ContextTrimmed { elided: usize, tokens: usize },
 }
 
 /// Where events go, and whether the user asked to stop.

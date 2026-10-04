@@ -94,7 +94,12 @@ impl<E: Executor> Server<E> {
                     Err(e) => (format!("Invalid input: {e}"), true),
                     Ok(call) => match self.exec.execute(&call, &self.tag()) {
                         Ok(done) => (
-                            render_result(&done.kind, &done.summary, &done.result),
+                            render_result(
+                                &done.kind,
+                                &done.summary,
+                                &done.result,
+                                call.op.offset(),
+                            ),
                             false,
                         ),
                         Err(e) => (format!("Error: {e}"), true),

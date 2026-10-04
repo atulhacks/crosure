@@ -78,6 +78,7 @@ fn function_block(store: &Store, ws: &mut Workspace, name: &str) -> Option<Strin
             store,
             Op::Disasm {
                 target: name.into(),
+                offset: None,
             },
             None,
             Origin::Ui,
@@ -86,7 +87,7 @@ fn function_block(store: &Store, ws: &mut Workspace, name: &str) -> Option<Strin
         .ok()?;
     Some(format!(
         "\n### @{name}\n{}\n",
-        render_result("disasm", &out.step.observation.summary, &out.result)
+        render_result("disasm", &out.step.observation.summary, &out.result, 0)
     ))
 }
 

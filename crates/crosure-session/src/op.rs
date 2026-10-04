@@ -19,23 +19,35 @@ pub enum Op {
     Info,
     Functions {
         filter: Option<String>,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     Disasm {
         target: String,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     /// Pseudo-C of a function (needs rizin + rz-ghidra).
     Decompile {
         target: String,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     XrefsTo {
         target: String,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     XrefsFrom {
         target: String,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     Strings {
         filter: Option<String>,
         min_len: Option<usize>,
+        /// First line to show the agent (paging); `None` for the start.
+        offset: Option<usize>,
     },
     Imports,
     Hex {
@@ -93,16 +105,16 @@ impl Op {
     ///
     /// ```
     /// use crosure_session::Op;
-    /// let op = Op::Disasm { target: "0x1189".into() }.with_target("decode");
+    /// let op = Op::Disasm { target: "0x1189".into(), offset: None }.with_target("decode");
     /// assert_eq!(op.command(), "dis decode");
     /// ```
     pub fn with_target(&self, target: &str) -> Op {
         let t = target.to_string();
         match self.clone() {
-            Op::Disasm { .. } => Op::Disasm { target: t },
-            Op::Decompile { .. } => Op::Decompile { target: t },
-            Op::XrefsTo { .. } => Op::XrefsTo { target: t },
-            Op::XrefsFrom { .. } => Op::XrefsFrom { target: t },
+            Op::Disasm { offset, .. } => Op::Disasm { target: t, offset },
+            Op::Decompile { offset, .. } => Op::Decompile { target: t, offset },
+            Op::XrefsTo { offset, .. } => Op::XrefsTo { target: t, offset },
+            Op::XrefsFrom { offset, .. } => Op::XrefsFrom { target: t, offset },
             Op::Hex { len, .. } => Op::Hex { target: t, len },
             Op::Rename { name, .. } => Op::Rename { target: t, name },
             Op::Comment { text, .. } => Op::Comment { target: t, text },
@@ -116,7 +128,7 @@ impl Op {
     ///
     /// ```
     /// use crosure_session::{parse_command, Op};
-    /// let op = Op::XrefsTo { target: "strcmp".into() };
+    /// let op = Op::XrefsTo { target: "strcmp".into(), offset: None };
     /// assert_eq!(op.command(), "xt strcmp");
     /// let hex = Op::Hex { target: "0x1000".into(), len: None };
     /// assert_eq!(parse_command(&hex.command())?, hex);
@@ -124,5 +136,24 @@ impl Op {
     /// ```
     pub fn command(&self) -> String {
         crate::console::render(self)
+    }
+
+    /// First result line the agent asked to see (0 when not paging).
+    ///
+    /// ```
+    /// use crosure_session::Op;
+    /// assert_eq!(Op::Disasm { target: "main".into(), offset: Some(400) }.offset(), 400);
+    /// assert_eq!(Op::Imports.offset(), 0);
+    /// ```
+    pub fn offset(&self) -> usize {
+        match self {
+            Op::Functions { offset, .. }
+            | Op::Disasm { offset, .. }
+            | Op::Decompile { offset, .. }
+            | Op::XrefsTo { offset, .. }
+            | Op::XrefsFrom { offset, .. }
+            | Op::Strings { offset, .. } => offset.unwrap_or(0),
+            _ => 0,
+        }
     }
 }

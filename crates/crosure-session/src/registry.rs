@@ -104,7 +104,7 @@ pub fn is_write_tool(name: &str) -> bool {
 /// ```
 /// let help = crosure_session::console_help();
 /// assert!(help.lines().any(|l| l.starts_with("hex <addr> [len]")));
-/// assert!(help.contains("str [--min n] [filter]"));
+/// assert!(help.contains("str [--min n] [--from line] [filter]"));
 /// ```
 pub fn console_help() -> String {
     OPS.iter()

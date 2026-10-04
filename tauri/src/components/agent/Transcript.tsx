@@ -165,6 +165,13 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
             );
           case "usage":
             return null;
+          case "context_trimmed":
+            return (
+              <div key={i} className="text-2xs text-faint">
+                Elided {e.elided} old tool results to stay within the context window (~
+                {(e.tokens / 1000).toFixed(0)}k tokens). They stay on the graph.
+              </div>
+            );
           case "switched":
             return (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted">

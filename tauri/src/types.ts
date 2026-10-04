@@ -229,12 +229,12 @@ export interface DatasetExport {
 
 export type Op =
   | { op: "info" }
-  | { op: "functions"; filter: string | null }
-  | { op: "disasm"; target: string }
-  | { op: "decompile"; target: string }
-  | { op: "xrefs_to"; target: string }
-  | { op: "xrefs_from"; target: string }
-  | { op: "strings"; filter: string | null; min_len: number | null }
+  | { op: "functions"; filter: string | null; offset?: number | null }
+  | { op: "disasm"; target: string; offset?: number | null }
+  | { op: "decompile"; target: string; offset?: number | null }
+  | { op: "xrefs_to"; target: string; offset?: number | null }
+  | { op: "xrefs_from"; target: string; offset?: number | null }
+  | { op: "strings"; filter: string | null; min_len: number | null; offset?: number | null }
   | { op: "imports" }
   | { op: "hex"; target: string; len: number | null }
   | { op: "rename"; target: string; name: string }
@@ -347,7 +347,8 @@ export type AgentEvent =
   | { type: "stopped" }
   | { type: "usage"; input_tokens: number; output_tokens: number }
   | { type: "approval_requested"; request: ApprovalRequest }
-  | { type: "approval_resolved"; id: string; allowed: boolean };
+  | { type: "approval_resolved"; id: string; allowed: boolean }
+  | { type: "context_trimmed"; elided: number; tokens: number };
 
 export interface AgentEventPage {
   events: AgentEvent[];

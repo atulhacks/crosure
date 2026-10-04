@@ -11,6 +11,8 @@
 //! [`Transcript`], so a run can move to the next provider if one declines.
 
 mod agent;
+mod call;
+mod context;
 mod error;
 mod events;
 mod executor;
@@ -22,6 +24,7 @@ mod tools;
 mod transcript;
 
 pub use agent::{run_agent, run_agent_turn, AgentConfig, Executed, Executor};
+pub use context::{elide_old_results, estimate_tokens, is_context_overflow};
 pub use error::AgentError;
 pub use events::{AgentEvent, Sink};
 pub use executor::SessionExecutor;

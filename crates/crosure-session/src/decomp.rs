@@ -135,6 +135,7 @@ mod tests {
         let (mut ws, _) = Workspace::open(&store, &crackme(), None)?;
         let op = Op::Decompile {
             target: "check_password".into(),
+            offset: None,
         };
         if !crosure_engine::decompiler_status().available {
             assert!(ws.run(&store, op, None, Origin::Ui).is_err());

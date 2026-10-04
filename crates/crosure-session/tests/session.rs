@@ -29,6 +29,7 @@ fn analyst_flow_is_recorded_and_linked() -> Result<(), SessionError> {
         Op::Strings {
             filter: Some("wrong".into()),
             min_len: None,
+            offset: None,
         },
         None,
         Origin::Ui,
@@ -50,6 +51,7 @@ fn analyst_flow_is_recorded_and_linked() -> Result<(), SessionError> {
         &store,
         Op::XrefsTo {
             target: format!("{addr:#x}"),
+            offset: None,
         },
         parent,
         Origin::Ui,
@@ -69,6 +71,7 @@ fn analyst_flow_is_recorded_and_linked() -> Result<(), SessionError> {
         &store,
         Op::Disasm {
             target: "check_password".into(),
+            offset: None,
         },
         None,
         Origin::Console,
@@ -120,6 +123,7 @@ fn renames_apply_and_survive_resume() -> Result<(), SessionError> {
         &store,
         Op::Disasm {
             target: "0x11d9".into(),
+            offset: None,
         },
         None,
         Origin::Ui,
@@ -133,6 +137,7 @@ fn renames_apply_and_survive_resume() -> Result<(), SessionError> {
         &store,
         Op::Disasm {
             target: "check_password".into(),
+            offset: None,
         },
         None,
         Origin::Ui,
@@ -170,6 +175,7 @@ fn console_round_trip_and_errors() -> Result<(), SessionError> {
         &store,
         Op::Disasm {
             target: "nope".into(),
+            offset: None,
         },
         None,
         Origin::Console,

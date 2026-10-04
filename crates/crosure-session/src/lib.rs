@@ -11,7 +11,7 @@
 //!
 //! let store = Store::open_in_memory()?;
 //! let (mut ws, _load) = Workspace::open(&store, std::path::Path::new("./crackme"), None)?;
-//! let out = ws.run(&store, Op::Strings { filter: Some("http".into()), min_len: None }, None, Origin::Ui)?;
+//! let out = ws.run(&store, Op::Strings { filter: Some("http".into()), min_len: None, offset: None }, None, Origin::Ui)?;
 //! println!("{}", out.step.observation.summary);
 //! # Ok::<(), crosure_session::SessionError>(())
 //! ```

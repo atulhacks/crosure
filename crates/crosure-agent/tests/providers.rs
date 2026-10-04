@@ -255,7 +255,9 @@ fn old_settings_without_new_fields_still_load() {
 }
 
 #[test]
-fn tool_schemas_are_unchanged_by_the_registry() -> Result<(), Box<dyn std::error::Error>> {
+fn tool_schemas_match_the_snapshot() -> Result<(), Box<dyn std::error::Error>> {
+    // Tool and field names are in recorded datasets and prompts: any change
+    // to this snapshot must be deliberate.
     let snapshot: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/tool_definitions.json"))?;
     assert_eq!(crosure_agent::tool_definitions(), snapshot);
@@ -277,8 +279,12 @@ fn every_tool_call_maps_to_the_same_op_as_its_command() -> Result<(), Box<dyn st
             };
             if let Some(f) = a.tool_field {
                 input.insert(f.into(), v);
-                if a.placement == crosure_session::Placement::Positional {
-                    line.push(w);
+                match a.placement {
+                    crosure_session::Placement::Positional => line.push(w),
+                    crosure_session::Placement::Flag(flag) => {
+                        line.insert(1, w);
+                        line.insert(1, flag.to_string());
+                    }
                 }
             }
         }

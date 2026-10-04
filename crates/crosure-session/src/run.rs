@@ -133,7 +133,7 @@ impl Workspace {
                 );
                 simple(s, serde_json::to_value(info)?)
             }
-            Op::Functions { filter } => {
+            Op::Functions { filter, .. } => {
                 let needle = filter.as_ref().map(|f| f.to_lowercase());
                 let fs: Vec<_> = self
                     .functions()?
@@ -153,7 +153,7 @@ impl Workspace {
                     json!({ "functions": fs.into_iter().take(2000).collect::<Vec<_>>() }),
                 )
             }
-            Op::Disasm { target } => {
+            Op::Disasm { target, .. } => {
                 let addr = self.resolve(target)?;
                 let f = self
                     .engine
@@ -171,8 +171,8 @@ impl Workspace {
                     addr: Some(f.addr),
                 }
             }
-            Op::Decompile { target } => self.decompile_fn(target)?,
-            Op::XrefsTo { target } => {
+            Op::Decompile { target, .. } => self.decompile_fn(target)?,
+            Op::XrefsTo { target, .. } => {
                 let addr = self.resolve(target)?;
                 let refs = self.rename_refs(self.engine.xrefs_to(addr)?);
                 let what = self
@@ -185,7 +185,7 @@ impl Workspace {
                     addr: Some(addr),
                 }
             }
-            Op::XrefsFrom { target } => {
+            Op::XrefsFrom { target, .. } => {
                 let addr = self.resolve(target)?;
                 let refs = self.engine.xrefs_from(addr)?;
                 let to: Vec<String> = refs
@@ -203,7 +203,9 @@ impl Workspace {
                     addr: Some(addr),
                 }
             }
-            Op::Strings { filter, min_len } => {
+            Op::Strings {
+                filter, min_len, ..
+            } => {
                 let needle = filter.as_ref().map(|f| f.to_lowercase());
                 let all = self.engine.strings(min_len.unwrap_or(4))?;
                 let hits: Vec<_> = all

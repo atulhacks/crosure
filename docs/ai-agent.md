@@ -97,6 +97,27 @@ is on and a provider declines a request, the same conversation continues on
 the next ready provider in the list. The decline and the switch both show in
 the transcript.
 
+## Long runs and large results
+
+Each tool result the model sees is capped at 20,000 characters. A cut
+result names the line to continue from, and the listing tools
+(`list_functions`, `disassemble`, `decompile`, `xrefs_to`, `xrefs_from`,
+`search_strings`) take an `offset`. The page that was read is part of the
+recorded step (`dis main --from 400`), so the graph shows that a second page
+was viewed, not a repeated call.
+
+Before each request the agent estimates its size. When the estimate is over
+the budget (`AgentConfig.context_tokens`, 100k by default), it replaces the
+oldest large tool results with their first line and a note to re-run the
+call, trimming down to two thirds of the budget in one go so the prompt
+cache keeps working. The three newest results are never trimmed. If a
+provider still rejects a request as too long, which small local models do,
+it trims harder and retries once. Trimming is shown in the transcript.
+
+Nothing is lost. Every result is still a recorded step on the graph, and the
+model can fetch it again. Unlike summarizing old turns, this costs no extra
+model call and keeps exact addresses.
+
 ## Profiles
 
 A profile limits which tools the model is offered. You pick it in the

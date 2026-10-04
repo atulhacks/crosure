@@ -61,9 +61,10 @@ pub(crate) fn build(spec: &OpSpec, mut fields: Map<String, Value>) -> Result<Op,
 ///
 /// ```
 /// use crosure_session::{parse_command, Op};
-/// assert_eq!(parse_command("dis main")?, Op::Disasm { target: "main".into() });
-/// assert_eq!(parse_command("str http")?, Op::Strings { filter: Some("http".into()), min_len: None });
-/// assert_eq!(parse_command("iz --min 8")?, Op::Strings { filter: None, min_len: Some(8) });
+/// assert_eq!(parse_command("dis main")?, Op::Disasm { target: "main".into(), offset: None });
+/// assert_eq!(parse_command("str http")?, Op::Strings { filter: Some("http".into()), min_len: None, offset: None });
+/// assert_eq!(parse_command("iz --min 8")?, Op::Strings { filter: None, min_len: Some(8), offset: None });
+/// assert_eq!(parse_command("dis main --from 400")?.offset(), 400);
 /// assert!(parse_command("frobnicate").is_err());
 /// assert!(parse_command("verdict evil - why").is_err(), "verdicts are checked");
 /// # Ok::<(), crosure_session::SessionError>(())

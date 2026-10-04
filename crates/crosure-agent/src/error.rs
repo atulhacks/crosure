@@ -4,13 +4,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AgentError {
     /// No API key is configured.
-    #[error("no Anthropic API key configured")]
+    #[error("no ready provider: add an API key or a local model in Agent settings")]
     NoApiKey,
     /// The key was rejected (HTTP 401/403).
-    #[error("the Anthropic API rejected the key: {0}")]
+    #[error("the provider rejected the API key: {0}")]
     Auth(String),
     /// The API returned an error after retries.
-    #[error("Anthropic API error ({status}): {message}")]
+    #[error("API error ({status}): {message}")]
     Api { status: u16, message: String },
     /// Network failure.
     #[error("network error: {0}")]
