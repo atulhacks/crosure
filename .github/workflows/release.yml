@@ -1,0 +1,196 @@
+name: Release
+
+# Push a tag `vX.Y.Z` (after `python3 tools/version.py set X.Y.Z`) to build
+# every platform and attach the files to a draft GitHub release, which you
+# review and publish. "Run workflow" builds the same files without a release
+# and keeps them as workflow artifacts (a dry run).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    name: Version and draft release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_id: ${{ steps.release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Version (a tag must match the files)
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            v=$(python3 tools/version.py check "$GITHUB_REF_NAME")
+          else
+            v=$(python3 tools/version.py)
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - id: release
+        name: Draft release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Re-running the workflow reuses the draft it created.
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" | head -n1)
+          if [ -z "$id" ]; then
+            pre=false
+            case "$VERSION" in *-*) pre=true ;; esac
+            sed "s/{{VERSION}}/$VERSION/g" .github/release-body.md > body.md
+            id=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$GITHUB_REF_NAME" -f name="Crosure $VERSION" \
+              -F body=@body.md -F draft=true -F prerelease=$pre \
+              -F generate_release_notes=true --jq .id)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  app:
+    name: App (${{ matrix.label }})
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: linux-x64, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { label: linux-arm64, os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { label: macos-arm64, os: macos-latest, target: aarch64-apple-darwin }
+          - { label: macos-x64, os: macos-latest, target: x86_64-apple-darwin }
+          - { label: windows-x64, os: windows-latest, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libxdo-dev libssl-dev build-essential file
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tauri/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: app-${{ matrix.target }}
+      - run: npm ci
+        working-directory: tauri
+      - name: Build and attach installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          projectPath: tauri
+          tauriScript: npx tauri
+          args: --target ${{ matrix.target }}
+          # Empty on a dry run: build only.
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+      - name: Keep the installers (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: crosure-app-${{ matrix.label }}
+          if-no-files-found: error
+          path: |
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            target/${{ matrix.target }}/release/bundle/msi/*.msi
+            target/${{ matrix.target }}/release/bundle/nsis/*.exe
+
+  cli:
+    name: CLI (${{ matrix.label }})
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: linux-x64, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { label: linux-arm64, os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { label: macos-arm64, os: macos-latest, target: aarch64-apple-darwin }
+          - { label: macos-x64, os: macos-latest, target: x86_64-apple-darwin }
+          - { label: windows-x64, os: windows-latest, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cli-${{ matrix.target }}
+      - name: Build
+        run: >
+          cargo build --release --locked --target ${{ matrix.target }} --bins
+          -p crosure-agent -p crosure-mcp -p crosure-dataset
+      - name: Package
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          name="crosure-cli-$VERSION-${{ matrix.label }}"
+          ext=""
+          [ "$RUNNER_OS" = Windows ] && ext=".exe"
+          mkdir "$name"
+          for bin in crosure-reverse crosure-mcp crosure-export; do
+            cp "target/$TARGET/release/$bin$ext" "$name/"
+          done
+          cp README.md LICENSE "$name/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a -tzip "$name.zip" "$name" > /dev/null
+            echo "file=$name.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar czf "$name.tar.gz" "$name"
+            echo "file=$name.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Attach to the release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "${{ steps.package.outputs.file }}" --clobber
+      - name: Keep the archive (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: crosure-cli-${{ matrix.label }}
+          path: ${{ steps.package.outputs.file }}
+          if-no-files-found: error
+
+  checksums:
+    name: Checksums
+    needs: [prepare, app, cli]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: SHA256SUMS.txt for every attached file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -D dist --clobber
+          cd dist
+          rm -f SHA256SUMS.txt
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" SHA256SUMS.txt --clobber

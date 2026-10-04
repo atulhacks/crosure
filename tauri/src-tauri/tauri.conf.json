@@ -19,7 +19,9 @@
         "minHeight": 640
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
@@ -30,6 +32,25 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Crosure",
+    "copyright": "Copyright 2026 the Crosure authors. Apache-2.0.",
+    "category": "DeveloperTool",
+    "shortDescription": "Reverse-engineering workbench that records every step",
+    "longDescription": "Crosure is a reverse-engineering workbench. Every action, yours or an AI agent's, is a recorded, hash-chained step on an investigation graph, and investigations export as training data.",
+    "license": "Apache-2.0",
+    "homepage": "https://github.com/atulhacks/crosure",
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "section": "devel"
+      },
+      "rpm": {
+        "release": "1"
+      }
+    }
   }
 }

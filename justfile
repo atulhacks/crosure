@@ -11,6 +11,10 @@ dev:
 build:
     cd tauri && npm install && npm run tauri build
 
+# Set the version everywhere (Cargo, Tauri, npm), e.g. `just version 0.2.0`.
+version v:
+    python3 tools/version.py set {{v}}
+
 # All tests.
 test:
     cargo test --workspace

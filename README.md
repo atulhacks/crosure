@@ -9,6 +9,14 @@ Built for Innoventure 4.0 (Amity University). Full plan: [docs/PLAN.md](docs/PLA
 
 ![Crosure workbench](docs/media/workbench.png)
 
+## Download
+
+Installers for Windows, macOS (Apple Silicon and Intel) and Linux (x64 and
+arm64: `.deb`, `.rpm`, `.AppImage`), plus the command-line tools, are on the
+[Releases](https://github.com/atulhacks/crosure/releases) page. See
+[docs/releasing.md](docs/releasing.md) for what each file is and how releases
+are made. To build from source, see [Run it](#run-it).
+
 ## Ask the AI to reverse a file
 
 Click **Ask AI** (Ctrl+L), or run it from the terminal:
