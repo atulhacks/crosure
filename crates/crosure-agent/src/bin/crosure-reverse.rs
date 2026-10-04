@@ -64,6 +64,14 @@ impl Sink for Print {
             }
             AgentEvent::Failed { error } => eprintln!("! {error}"),
             AgentEvent::Stopped => eprintln!("· stopped"),
+            AgentEvent::Retrying {
+                attempt,
+                delay_ms,
+                error,
+            } => eprintln!(
+                "· retry {attempt} in {:.1}s: {error}",
+                delay_ms as f64 / 1000.0
+            ),
             AgentEvent::ContextTrimmed { elided, tokens } => {
                 eprintln!("· elided {elided} old tool results (~{tokens} tokens now)")
             }

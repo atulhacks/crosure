@@ -4,6 +4,7 @@ use crate::call::{run_one, CallCtx};
 use crate::context::{elide_old_results, estimate_tokens, is_context_overflow};
 use crate::policy::Permissions;
 use crate::providers::Provider;
+use crate::retry::next_turn;
 use crate::tools::ToolCall;
 use crate::{AgentError, AgentEvent, Block, Entry, Sink, Stop, ToolResult, Transcript};
 
@@ -18,6 +19,10 @@ pub struct AgentConfig {
     /// elided, down to two thirds of it (in one go, so prompt caching keeps
     /// working). Providers that reject a long prompt trigger the same.
     pub context_tokens: usize,
+    /// Retries of a temporary provider failure (429, overload, 5xx, network).
+    pub max_retries: u32,
+    /// First retry delay; doubles each time (the server's `retry-after` wins).
+    pub retry_base_ms: u64,
 }
 
 impl Default for AgentConfig {
@@ -26,6 +31,8 @@ impl Default for AgentConfig {
             max_turns: 40,
             permissions: Permissions::default(),
             context_tokens: 100_000,
+            max_retries: 3,
+            retry_base_ms: 2_000,
         }
     }
 }
@@ -107,10 +114,14 @@ pub fn run_agent_turn(
         if estimate_tokens(t) > cfg.context_tokens {
             trim(t, sink, cfg.context_tokens * 2 / 3);
         }
-        let turn = match provider.next(t) {
-            Ok(r) => {
+        let turn = match next_turn(provider.as_ref(), t, sink, cfg) {
+            Ok(Some(r)) => {
                 overflow_retried = false;
                 r
+            }
+            Ok(None) => {
+                sink.emit(AgentEvent::Stopped);
+                return Ok(String::new());
             }
             Err(e) if !overflow_retried && is_context_overflow(&e.to_string()) => {
                 // Too long for this model: elide harder and try once more.
@@ -194,6 +205,14 @@ pub fn run_agent_turn(
                 let results = tool_uses
                     .into_iter()
                     .map(|(id, name, args)| {
+                        // Every call needs a result, even the ones Stop skipped.
+                        if sink.should_stop() {
+                            return ToolResult {
+                                id,
+                                content: "Not run: the analyst stopped the run.".into(),
+                                is_error: true,
+                            };
+                        }
                         let (content, is_error) = run_one(&ctx, &id, &name, &args);
                         tool_calls += 1;
                         ToolResult {

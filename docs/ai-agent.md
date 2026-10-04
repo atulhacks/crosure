@@ -115,7 +115,18 @@ provider still rejects a request as too long, which small local models do,
 it trims harder and retries once. Trimming is shown in the transcript.
 
 Nothing is lost. Every result is still a recorded step on the graph, and the
-model can fetch it again. Unlike summarizing old turns, this costs no extra
+model can fetch it again.
+
+**Temporary failures.** The agent retries a request when the provider is
+temporarily unavailable: 408, 429, 500, 502, 503, 504, 529 (overloaded), or a
+network error. It retries up to 3 times, after 2s, 4s and 8s (±10%), or after
+the server's `retry-after` (at most 60s per wait). Each wait appears in the
+transcript. A rejected key, a bad request or a refusal is never retried.
+
+**Stop.** Stop is checked during retry waits and between tool calls. The
+calls a stop skips are answered with "not run", so the thread can continue
+later. A request already in flight finishes first, since providers are
+called without streaming. Unlike summarizing old turns, this costs no extra
 model call and keeps exact addresses.
 
 ## Profiles

@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::AgentError;
 
-/// Shared blocking HTTP with retries on 429, 5xx and network errors.
+/// Shared blocking HTTP client (no retries here: see [`Http::call`]).
 pub(crate) struct Http {
     client: reqwest::blocking::Client,
 }
@@ -46,41 +46,35 @@ impl Http {
     }
 
     /// GET or POST (when `body` is set) with headers; returns the JSON body.
+    /// One attempt: temporary failures come back as
+    /// [`AgentError::Transient`] / [`AgentError::Network`] and the agent loop
+    /// decides whether to retry, so it can show the wait and honour Stop.
     pub(crate) fn call(
         &self,
         url: &str,
         headers: &[(&str, String)],
         body: Option<&Value>,
     ) -> Result<Value, AgentError> {
-        let mut delay = 2u64;
-        for attempt in 0..4 {
-            let mut req = match body {
-                Some(b) => self.client.post(url).json(b),
-                None => self.client.get(url),
-            };
-            for (k, v) in headers {
-                req = req.header(*k, v);
-            }
-            match self.send(req) {
-                Ok((200, _, json)) => return Ok(json),
-                Ok((401 | 403, _, json)) => return Err(AgentError::Auth(message(&json))),
-                Ok((429 | 500..=599, retry_after, _)) if attempt < 3 => {
-                    std::thread::sleep(Duration::from_secs(retry_after.unwrap_or(delay).min(60)));
-                    delay *= 2;
-                }
-                Ok((status, _, json)) => {
-                    return Err(AgentError::Api {
-                        status,
-                        message: message(&json),
-                    })
-                }
-                Err(AgentError::Network(_)) if attempt < 3 => {
-                    std::thread::sleep(Duration::from_secs(delay));
-                    delay *= 2;
-                }
-                Err(e) => return Err(e),
-            }
+        let mut req = match body {
+            Some(b) => self.client.post(url).json(b),
+            None => self.client.get(url),
+        };
+        for (k, v) in headers {
+            req = req.header(*k, v);
         }
-        Err(AgentError::Network("gave up after retries".into()))
+        let (status, retry_after, json) = self.send(req)?;
+        match status {
+            200 => Ok(json),
+            401 | 403 => Err(AgentError::Auth(message(&json))),
+            408 | 429 | 500 | 502 | 503 | 504 | 529 => Err(AgentError::Transient {
+                status,
+                message: message(&json),
+                retry_after,
+            }),
+            _ => Err(AgentError::Api {
+                status,
+                message: message(&json),
+            }),
+        }
     }
 }

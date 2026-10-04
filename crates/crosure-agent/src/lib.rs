@@ -20,6 +20,7 @@ mod policy;
 mod prompt;
 mod providers;
 mod render;
+mod retry;
 mod tools;
 mod transcript;
 

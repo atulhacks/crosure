@@ -165,6 +165,12 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
             );
           case "usage":
             return null;
+          case "retrying":
+            return (
+              <div key={i} className="text-2xs text-faint" title={e.error}>
+                Provider busy or unreachable; retry {e.attempt} in {(e.delay_ms / 1000).toFixed(1)}s
+              </div>
+            );
           case "context_trimmed":
             return (
               <div key={i} className="text-2xs text-faint">

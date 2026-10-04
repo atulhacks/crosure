@@ -54,6 +54,12 @@ pub enum AgentEvent {
     ApprovalRequested { request: ApprovalRequest },
     /// The analyst decided.
     ApprovalResolved { id: String, allowed: bool },
+    /// A temporary provider failure; retrying after `delay_ms`.
+    Retrying {
+        attempt: u32,
+        delay_ms: u64,
+        error: String,
+    },
     /// Old tool results were elided to stay within the context window.
     ContextTrimmed { elided: usize, tokens: usize },
 }

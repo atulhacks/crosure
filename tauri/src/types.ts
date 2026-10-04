@@ -348,6 +348,7 @@ export type AgentEvent =
   | { type: "usage"; input_tokens: number; output_tokens: number }
   | { type: "approval_requested"; request: ApprovalRequest }
   | { type: "approval_resolved"; id: string; allowed: boolean }
+  | { type: "retrying"; attempt: number; delay_ms: number; error: string }
   | { type: "context_trimmed"; elided: number; tokens: number };
 
 export interface AgentEventPage {

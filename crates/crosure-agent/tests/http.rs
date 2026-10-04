@@ -10,6 +10,15 @@ use serde_json::{json, Value};
 
 /// Serves one request with `reply`, returns (request line + headers, body).
 fn serve_once(reply: Value) -> (String, mpsc::Receiver<(String, Value)>) {
+    serve_status(reply, "200 OK", "")
+}
+
+/// Like [`serve_once`] with a chosen status line and extra header lines.
+fn serve_status(
+    reply: Value,
+    status: &'static str,
+    headers: &'static str,
+) -> (String, mpsc::Receiver<(String, Value)>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
     let addr = format!("http://{}", listener.local_addr().expect("addr"));
     let (tx, rx) = mpsc::channel();
@@ -33,7 +42,7 @@ fn serve_once(reply: Value) -> (String, mpsc::Receiver<(String, Value)>) {
         reader.read_exact(&mut body).expect("body");
         let payload = reply.to_string();
         let mut stream = stream;
-        write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", payload.len(), payload).expect("write");
+        write!(stream, "HTTP/1.1 {status}\r\ncontent-type: application/json\r\n{headers}content-length: {}\r\nconnection: close\r\n\r\n{}", payload.len(), payload).expect("write");
         tx.send((head, serde_json::from_slice(&body).unwrap_or(Value::Null)))
             .expect("send");
     });
@@ -237,5 +246,25 @@ fn claude_api_effort_none_turns_thinking_off() -> Result<(), Box<dyn std::error:
     let (_, body) = rx.recv()?;
     assert!(body.get("thinking").is_none() && body.get("output_config").is_none());
     assert_eq!(body["fallbacks"], "default");
+    Ok(())
+}
+
+#[test]
+fn status_codes_are_classified_for_retry() -> Result<(), Box<dyn std::error::Error>> {
+    let cases: [(&'static str, &'static str, bool); 4] = [
+        ("529 Overloaded", "", true),
+        ("429 Too Many Requests", "retry-after: 7\r\n", true),
+        ("400 Bad Request", "", false),
+        ("501 Not Implemented", "", false),
+    ];
+    for (status, headers, transient) in cases {
+        let (base, _rx) = serve_status(json!({ "error": { "message": "nope" } }), status, headers);
+        let p = OpenAiProvider::new("p", "m", &base, None, false)?;
+        let err = p.next(&transcript()).err().ok_or("expected an error")?;
+        assert_eq!(err.is_transient(), transient, "{status}: {err}");
+        if headers.contains("retry-after") {
+            assert_eq!(err.retry_after(), Some(7));
+        }
+    }
     Ok(())
 }
