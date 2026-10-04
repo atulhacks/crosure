@@ -4,6 +4,8 @@
 mod approval;
 mod mention;
 mod run;
+#[cfg(test)]
+mod tests;
 mod threads;
 
 use std::path::{Path, PathBuf};
@@ -30,6 +32,11 @@ pub struct AgentStatus {
     pub label: String,
     pub model: String,
     pub key_source: Option<KeySource>,
+    /// Environment variable the active provider's key is read from.
+    pub key_env: Option<String>,
+    /// No settings saved yet: the analyst has not chosen a provider, even if
+    /// a key found in the environment would make the default one work.
+    pub first_run: bool,
     /// How many providers are ready to take over after a decline.
     pub fallbacks: usize,
     pub running: bool,
@@ -137,6 +144,8 @@ impl AgentRuntime {
                 label: "Scripted demo".into(),
                 model: "scripted-demo".into(),
                 key_source: None,
+                key_env: None,
+                first_run: false,
                 fallbacks: 0,
                 running,
             };
@@ -158,6 +167,8 @@ impl AgentRuntime {
             label: active.map(|p| p.label.clone()).unwrap_or_default(),
             model: active.map(|p| p.model.clone()).unwrap_or_default(),
             key_source: active.map(|p| p.key().1),
+            key_env: active.map(ProviderConfig::key_env_name),
+            first_run: !self.path.exists(),
             fallbacks,
             running,
         }

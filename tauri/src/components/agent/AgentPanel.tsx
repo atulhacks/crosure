@@ -27,7 +27,7 @@ export function AgentPanel() {
   );
 
   if (!status) return <Empty title="Loading agent…" />;
-  if (!status.configured) return <AgentSetup />;
+  if (!status.configured || status.first_run) return <AgentSetup />;
   return (
     <div className="flex h-full flex-col">
       <ThreadBar />

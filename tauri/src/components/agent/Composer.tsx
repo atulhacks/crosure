@@ -25,6 +25,9 @@ const PROFILES: { value: Profile; label: string; hint: string }[] = [
   },
 ];
 
+/** Picker entry that opens the provider settings instead of switching. */
+const MANAGE = "__manage__";
+
 /** The `@token` being typed at the caret, if any. */
 export function mentionAt(text: string, caret: number): { start: number; query: string } | null {
   const before = text.slice(0, caret);
@@ -34,8 +37,19 @@ export function mentionAt(text: string, caret: number): { start: number; query: 
 
 /** Prompt box with @-mentions, profile and model pickers, usage and send/stop. */
 export function Composer() {
-  const { draft, setDraft, running, start, stop, profile, setProfile, status, setActive, events } =
-    useAgent();
+  const {
+    draft,
+    setDraft,
+    running,
+    start,
+    stop,
+    profile,
+    setProfile,
+    status,
+    setActive,
+    events,
+    setSettingsOpen,
+  } = useAgent();
   const functions = useWorkbench((s) => s.functions);
   const steps = useWorkbench((s) => s.timeline);
   const [providers, setProviders] = useState<ProviderView[]>([]);
@@ -44,7 +58,7 @@ export function Composer() {
   const box = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     api.agentSettings().then(
-      (v) => setProviders(v.providers.filter((p) => p.ready)),
+      (v) => setProviders(v.providers.filter((p) => p.enabled)),
       () => setProviders([]),
     );
   }, [status?.provider]);
@@ -161,18 +175,22 @@ export function Composer() {
             </option>
           ))}
         </select>
-        {status && !status.demo && providers.length > 0 && (
+        {status && !status.demo && (
           <select
             value={status.provider}
-            onChange={(e) => setActive(e.target.value)}
+            onChange={(e) =>
+              e.target.value === MANAGE ? setSettingsOpen(true) : setActive(e.target.value)
+            }
             title="Model"
             className="h-6 max-w-44 truncate rounded-md bg-transparent px-1 font-mono text-2xs text-muted outline-none hover:bg-hover hover:text-fg"
           >
             {providers.map((p) => (
-              <option key={p.id} value={p.id}>
+              <option key={p.id} value={p.id} disabled={!p.ready}>
                 {p.label} · {p.model}
+                {p.ready ? "" : " (needs key)"}
               </option>
             ))}
+            <option value={MANAGE}>Add or manage models…</option>
           </select>
         )}
         {status?.demo && <span className="px-1 font-mono text-2xs text-faint">scripted demo</span>}

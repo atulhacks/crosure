@@ -254,6 +254,10 @@ export interface AgentStatus {
   label: string;
   model: string;
   key_source: KeySource | null;
+  /** Environment variable the active provider's key is read from. */
+  key_env: string | null;
+  /** No provider chosen yet (nothing saved). */
+  first_run: boolean;
   fallbacks: number;
   running: boolean;
 }
