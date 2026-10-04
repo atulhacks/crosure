@@ -1,3 +1,4 @@
+mod arm32;
 mod arm64;
 mod disasm;
 mod load;
@@ -5,6 +6,7 @@ mod pe;
 mod strings;
 mod sweep;
 mod unwind;
+mod visit;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -36,6 +38,22 @@ impl NativeEngine {
         let loaded = load::load(path, &data)?;
         let analysis = sweep::analyze(&data, &loaded)?;
         let strings = strings::scan(&data, &loaded.info.sections, 4);
+        // Inside code, printable runs are mostly instruction bytes. Keep one
+        // only if code takes its address (a data reference, not a branch).
+        let data_refs: std::collections::BTreeSet<u64> = analysis
+            .xrefs
+            .iter()
+            .filter(|x| x.kind == crate::XrefKind::Data)
+            .map(|x| x.to)
+            .collect();
+        let strings: Vec<StringRef> = strings
+            .into_iter()
+            .filter(|s| {
+                !s.mapped
+                    || sweep::exec_contains(&loaded.info.sections, s.addr).is_none()
+                    || data_refs.contains(&s.addr)
+            })
+            .collect();
         let string_at = strings
             .iter()
             .enumerate()
@@ -68,12 +86,38 @@ impl NativeEngine {
 
     fn decode(&self, addr: u64, len: usize, limit: usize) -> Result<Vec<Instruction>, EngineError> {
         let info = &self.loaded.info;
-        let cs = disasm::capstone_for(&info.arch, info.bits)?;
-        let mut insns = disasm::decode(&cs, self.slice(addr, len)?, addr, limit)?;
+        let thumb = info
+            .sections
+            .iter()
+            .find(|s| addr >= s.addr && addr < s.addr + s.size)
+            .is_some_and(|s| self.loaded.thumb_in(&s.name));
+        let d = disasm::decoder_for(&info.arch, info.bits, thumb)?;
+        let mut insns = disasm::decode(&d, self.slice(addr, len)?, addr, limit)?;
         if info.arch == "aarch64" {
             let mut adrp = arm64::AdrpTracker::default();
             for insn in &mut insns {
                 insn.target = adrp.step(&insn.mnemonic, &insn.operands);
+            }
+        } else if info.arch == "arm" {
+            let mut t = arm32::Arm32Tracker::default();
+            let read = |a: u64| self.loaded.word(&self.data, a);
+            for insn in &mut insns {
+                let r = t.step(
+                    insn.addr,
+                    &insn.mnemonic,
+                    &insn.operands,
+                    thumb,
+                    self.loaded.pie,
+                    &read,
+                );
+                // Thumb function pointers have bit 0 set.
+                insn.target = r.map(|a| {
+                    if self.analysis.names.contains_key(&(a & !1)) {
+                        a & !1
+                    } else {
+                        a
+                    }
+                });
             }
         }
         for insn in &mut insns {
@@ -87,7 +131,7 @@ impl NativeEngine {
         let next_ip = insn.addr + (insn.bytes.len() / 2) as u64;
         // On AArch64 an immediate is a page or an offset, never an address:
         // `decode` already resolved adrp pairs into `target`.
-        let arm = self.loaded.info.arch == "aarch64";
+        let arm = matches!(self.loaded.info.arch.as_str(), "aarch64" | "arm");
         let target = insn
             .target
             .or_else(|| parse_branch_target(&insn.operands))

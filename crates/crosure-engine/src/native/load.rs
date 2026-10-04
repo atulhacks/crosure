@@ -22,6 +22,29 @@ pub(crate) struct Loaded {
     pub unwind: BTreeMap<u64, u64>,
     /// Addresses stored as pointers via load-time relocations.
     pub relocated: BTreeSet<u64>,
+    /// 32-bit ARM code is Thumb-2 (odd entry point or function symbols).
+    /// `.plt` stays ARM: the linker writes ARM stubs.
+    pub thumb: bool,
+    /// Position-independent (PIE or shared library): literal-pool words are
+    /// offsets, not addresses.
+    pub pie: bool,
+}
+
+impl Loaded {
+    /// The little-endian word at virtual address `addr`, from the file.
+    pub(crate) fn word(&self, data: &[u8], addr: u64) -> Option<u32> {
+        let s =
+            self.info.sections.iter().find(|s| {
+                s.file_offset.is_some() && addr >= s.addr && addr + 4 <= s.addr + s.size
+            })?;
+        let off = usize::try_from(s.file_offset? + (addr - s.addr)).ok()?;
+        Some(u32::from_le_bytes(data.get(off..off + 4)?.try_into().ok()?))
+    }
+
+    /// Whether code in `section` decodes as Thumb.
+    pub(crate) fn thumb_in(&self, section: &str) -> bool {
+        self.thumb && !section.starts_with(".plt")
+    }
 }
 
 /// `sha256:<hex>` of a buffer.
@@ -76,23 +99,29 @@ pub(crate) fn load(path: &str, data: &[u8]) -> Result<Loaded, EngineError> {
         })
         .collect();
 
+    // On 32-bit ARM, bit 0 of a code address selects Thumb, not a byte.
+    let arm = file.architecture() == Architecture::Arm;
+    let code_addr = |a: u64| if arm { a & !1 } else { a };
     let mut symbols = BTreeMap::new();
+    let mut odd = (0usize, 0usize);
     for sym in file.symbols().chain(file.dynamic_symbols()) {
         if sym.kind() == object::SymbolKind::Text && sym.is_definition() && sym.address() != 0 {
             if let Ok(name) = sym.name() {
                 if !name.is_empty() {
+                    odd = (odd.0 + usize::from(sym.address() & 1 == 1), odd.1 + 1);
                     symbols
-                        .entry(sym.address())
+                        .entry(code_addr(sym.address()))
                         .or_insert((name.to_string(), sym.size()));
                 }
             }
         }
     }
+    let thumb = arm && (file.entry() & 1 == 1 || odd.0 * 2 > odd.1);
     let exports = file
         .exports()
         .map(|ex| {
             ex.into_iter()
-                .map(|e| (e.address(), utf8(e.name())))
+                .map(|e| (code_addr(e.address()), utf8(e.name())))
                 .collect()
         })
         .unwrap_or_default();
@@ -119,7 +148,7 @@ pub(crate) fn load(path: &str, data: &[u8]) -> Result<Loaded, EngineError> {
         arch: arch_name(file.architecture()).into(),
         bits: if file.is_64() { 64 } else { 32 },
         little_endian: file.is_little_endian(),
-        entry: file.entry(),
+        entry: code_addr(file.entry()),
         size: data.len() as u64,
         sha256: sha256(data),
         stripped,
@@ -132,7 +161,12 @@ pub(crate) fn load(path: &str, data: &[u8]) -> Result<Loaded, EngineError> {
         imports,
         import_slots,
         unwind: super::unwind::function_ranges(&file, data),
-        relocated: super::unwind::relocated_pointers(&file, data),
+        relocated: super::unwind::relocated_pointers(&file, data)
+            .into_iter()
+            .map(code_addr)
+            .collect(),
+        thumb,
+        pie: file.kind() == object::ObjectKind::Dynamic,
     })
 }
 

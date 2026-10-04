@@ -69,10 +69,55 @@ as well.
 | **Function fingerprints** (FID-style, `fid1:`) on every step target; store format v2 indexes them. **`recall`** lists what other sessions recorded about the same code; ambiguous matches are flagged, nothing is applied automatically. | Relinked build: 71/71 identical after fixing offset signs; collisions in librz_util are all genuinely identical code; recall test across stripped/unstripped copies |
 | **Leakage-safe splits** by binary and shared significant code (library code excluded); duplicate SFT examples dropped; Python `load_dataset(split=…)` | `crates/crosure-dataset/tests/split.rs`; Python test |
 
+### ARM, measured
+
+cabextract, stripped, built with `aarch64-linux-gnu-gcc` and
+`arm-linux-gnueabihf-gcc` (Thumb-2) at -O2.
+
+**AArch64** (scored with `tools/armbench.py`):
+- string references: 0% → **100%** (67/67);
+- PLT stubs named: 0 → **51/51**;
+- function starts and exact sizes: **100%** (rizin `aaa` finds 67.9%).
+
+**ARM32 / Thumb-2:**
+- function starts: 1.1% → **88.6%**, at 100% precision (rizin `aaa`
+  54.5%);
+- exact sizes: 89.2%;
+- PLT stubs named: 0 → **52/52**;
+- literal-pool string references: **18/18**.
+
+The fixes:
+- `native/arm64.rs` pairs `adrp` with its `add`/`ld*`/`st*`.
+- `native/arm32.rs` follows literal pools and pc-relative `add` chains.
+- Thumb code is detected from the odd entry point or odd symbols, and
+  decoded as Thumb, except in `.plt`.
+- ARM conditional branches are recognized.
+- `R_ARM_RELATIVE` pointers are read from the data.
+
+### Strings, every architecture
+
+The scanner read whole files, so runs of instruction bytes became
+"strings": 461 of 638 in the gcc build of cabextract. A string inside code
+is now kept only if code takes its address. Strings in data sections, file
+headers and overlays are kept as before. After the fix:
+- cabextract has **177** strings on x86-64, 175 on ARM64 and 177 on ARM32;
+- the strings code references are 71 / 67 / 67: the same source gives the
+  same answer on each architecture.
+
+## Known limits
+
+- ARM-mode functions inside a Thumb binary are decoded as Thumb. Here
+  that is 3 of 92 functions, all C runtime startup code.
+- No noreturn propagation or jump-table recovery yet. These matter only
+  when there are no unwind tables: a gcc build without them reaches 90.4%
+  of function starts.
+- Mach-O `LC_FUNCTION_STARTS` is not read. There is no Mach-O corpus to
+  measure it on.
+
 ## Next, in order
 
-The first four items below are done (see the table above). ARM correctness
-is next; it needs an aarch64 cross toolchain in the benchmark first.
+Items 1–5 below are done (see the tables above). The remaining items are
+the known limits just listed.
 
 **1. One declarative op registry.** Effort: M.
 

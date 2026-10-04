@@ -19,10 +19,12 @@ def truth_elf(path):
         if m:
             secs[int(m[1])] = m[2]
     out = {}
+    thumb = "ARM" in subprocess.run(["readelf", "-hW", path], capture_output=True, text=True).stdout.split("Machine:")[1].split("\n")[0]
     for l in subprocess.run(["readelf", "-sW", path], capture_output=True, text=True).stdout.splitlines():
         p = l.split()
         if len(p) >= 8 and p[3] == "FUNC" and p[6].isdigit() and int(p[6]) in secs and secs[int(p[6])] not in (".plt", ".plt.got", ".plt.sec", ".init", ".fini"):
-            a, sz = int(p[1], 16), int(p[2])
+            # ARM: bit 0 of a function symbol marks Thumb code, not the address.
+            a, sz = int(p[1], 16) & ~1 if thumb else int(p[1], 16), int(p[2])
             out[a] = max(sz, out.get(a, 0))
     return out
 

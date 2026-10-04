@@ -53,12 +53,38 @@ pub(crate) fn is_call(mnemonic: &str) -> bool {
     matches!(mnemonic, "call" | "bl" | "blx" | "jal" | "jalr")
 }
 
-/// True for jumps and conditional branches.
+/// ARM condition codes, as in `bne`, `bhi.w`.
+const CONDITIONS: [&str; 16] = [
+    "eq", "ne", "cs", "hs", "cc", "lo", "mi", "pl", "vs", "vc", "hi", "ls", "ge", "lt", "gt", "le",
+];
+
+/// True for jumps and conditional branches (x86 `j*`, AArch64 `b.cond`,
+/// ARM `b<cond>` with an optional `.w`/`.n` width, `cbz`, `tbz`).
 pub(crate) fn is_jump(mnemonic: &str) -> bool {
-    mnemonic.starts_with('j')
-        || mnemonic == "b"
-        || mnemonic.starts_with("b.")
-        || mnemonic == "bx"
-        || mnemonic.starts_with("cb")
-        || mnemonic.starts_with("tb")
+    let m = mnemonic.trim_end_matches(".w").trim_end_matches(".n");
+    m.starts_with('j')
+        || m == "b"
+        || m.starts_with("b.")
+        || m == "bx"
+        || m.starts_with("cb")
+        || m.starts_with("tb")
+        || (m.len() == 3 && m.starts_with('b') && CONDITIONS.contains(&&m[1..]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_call, is_jump};
+
+    #[test]
+    fn arm_branches_are_told_from_calls_and_alu_ops() {
+        for j in [
+            "jne", "b", "b.ne", "bne", "bne.w", "bls", "b.w", "cbz", "tbb",
+        ] {
+            assert!(is_jump(j), "{j}");
+        }
+        for not in ["bl", "blx", "bic", "bfi", "mov"] {
+            assert!(!is_jump(not), "{not}");
+        }
+        assert!(is_call("bl") && is_call("blx"));
+    }
 }

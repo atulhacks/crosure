@@ -109,19 +109,29 @@ pub(crate) fn relocated_pointers(file: &object::File<'_>, data: &[u8]) -> BTreeS
 }
 
 /// `R_X86_64_RELATIVE` (8) and `R_AARCH64_RELATIVE` (1027) carry the target
-/// in their addend.
+/// in their addend; `R_ARM_RELATIVE` (23) is REL, so the target is the word
+/// already stored at the relocated address.
 fn elf_relative(file: &object::File<'_>) -> BTreeSet<u64> {
-    let relative = match file.architecture() {
-        object::Architecture::X86_64 => 8,
-        object::Architecture::Aarch64 => 1027,
+    let (relative, implicit) = match file.architecture() {
+        object::Architecture::X86_64 => (8, false),
+        object::Architecture::Aarch64 => (1027, false),
+        object::Architecture::Arm => (23, true),
         _ => return BTreeSet::new(),
     };
     let Some(relocs) = file.dynamic_relocations() else {
         return BTreeSet::new();
     };
+    let word_at = |addr: u64| -> Option<u64> {
+        let sec = file
+            .sections()
+            .find(|s| addr >= s.address() && addr + 4 <= s.address() + s.size())?;
+        let off = usize::try_from(addr - sec.address()).ok()?;
+        let b = sec.data().ok()?.get(off..off + 4)?;
+        Some(u64::from(u32::from_le_bytes(b.try_into().ok()?)))
+    };
     relocs
         .filter(|(_, r)| matches!(r.flags(), object::RelocationFlags::Elf { r_type } if r_type == relative))
-        .filter_map(|(_, r)| u64::try_from(r.addend()).ok())
+        .filter_map(|(at, r)| if implicit { word_at(at) } else { u64::try_from(r.addend()).ok() })
         .collect()
 }
 
