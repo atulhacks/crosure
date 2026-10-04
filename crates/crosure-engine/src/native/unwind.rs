@@ -80,7 +80,7 @@ fn pdata(data: &[u8]) -> BTreeMap<u64, u64> {
     else {
         return out;
     };
-    for e in table.chunks_exact(12) {
+    for e in table.as_chunks::<12>().0 {
         let word = |i: usize| u32::from_le_bytes([e[i], e[i + 1], e[i + 2], e[i + 3]]);
         let (begin, end, unwind) = (word(0), word(4), word(8));
         if begin == 0 || end <= begin {
