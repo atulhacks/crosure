@@ -63,6 +63,10 @@ cargo run -p crosure-agent --bin crosure-reverse -- ./sample "Find how the input
 - **Decompiler (optional):** a **Decompiled** tab shows pseudo-C from
   rz-ghidra (via rizin), with your renames applied and calls you can follow.
   Setup: [docs/decompiler.md](docs/decompiler.md).
+- **Recall across investigations:** every function gets a
+  relocation-independent fingerprint (after Ghidra FunctionID), so
+  `recall <fn>` shows what earlier sessions on *other* binaries found about
+  the same code, with ambiguous matches flagged.
 - **Training data:** **Export → Training dataset** (or `crosure-export`)
   writes verified investigations as trajectories, SFT examples and DPO
   preference pairs; `python/` verifies chains independently and loads the

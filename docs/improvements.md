@@ -59,7 +59,20 @@ as well.
 | Thread files are written atomically. An unreadable file is set aside as `*.corrupt-<ms>`; before, it was treated as empty and overwritten, erasing every thread in the session | `an_unreadable_file_is_set_aside_not_overwritten` |
 | The store format version is kept in `PRAGMA user_version`, with an ordered migration list. A store from a newer Crosure is refused, not misread | `crates/crosure-recorder/tests/format.rs` |
 
+## Done in the second round
+
+| Change | Evidence |
+| --- | --- |
+| **One op registry** (`crosure-session/src/table.rs`). It generates console parsing and help, `Op::command()`, the agent/MCP tool schemas and parser, the read-only profile and the confirm preset. Fixed the drift it found: `hex` round-trip, verdict values, unreachable `min_len`, the missing `functions` in the TS type. | Schema snapshot identical before and after; round-trip test over every op; TS type check |
+| **Paging** with `offset` / `--from`, recorded in the step. **Context budget**: the oldest large tool results are elided (lossless, they are recorded steps); a "prompt too long" error trims and retries once. | `tests/context.rs`: run bounded, pairs intact, overflow recovered; exact next offset |
+| **Retries in the agent loop**: only temporary failures (408/429/5xx except 501/529, network), backoff with jitter, `retry-after` honoured, each wait shown, Stop works during waits and between tool calls | `tests/retry.rs`; status classification against a mock server |
+| **Function fingerprints** (FID-style, `fid1:`) on every step target; store format v2 indexes them. **`recall`** lists what other sessions recorded about the same code; ambiguous matches are flagged, nothing is applied automatically. | Relinked build: 71/71 identical after fixing offset signs; collisions in librz_util are all genuinely identical code; recall test across stripped/unstripped copies |
+| **Leakage-safe splits** by binary and shared significant code (library code excluded); duplicate SFT examples dropped; Python `load_dataset(split=…)` | `crates/crosure-dataset/tests/split.rs`; Python test |
+
 ## Next, in order
+
+The first four items below are done (see the table above). ARM correctness
+is next; it needs an aarch64 cross toolchain in the benchmark first.
 
 **1. One declarative op registry.** Effort: M.
 

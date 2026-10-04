@@ -8,7 +8,7 @@ use crosure_dataset::{export, ExportOptions};
 use crosure_recorder::Store;
 
 const USAGE: &str = "usage: crosure-export [--session ID]... [--all-steps] [--humans-only] \
-[--history N] [--allow-unverified] [OUT_DIR]
+[--history N] [--allow-unverified] [--test-percent N] [OUT_DIR]
 
 Reads $CROSURE_HOME/crosure.db (default ~/.crosure) and writes trajectories.jsonl,
 sft.jsonl, dpo.jsonl and manifest.json to OUT_DIR (default $CROSURE_HOME/datasets/latest).";
@@ -32,6 +32,13 @@ fn parse(args: &[String]) -> Result<(ExportOptions, Option<PathBuf>), String> {
             "--all-steps" => opts.sft.key_path_only = false,
             "--humans-only" => opts.sft.humans_only = true,
             "--allow-unverified" => opts.allow_unverified = true,
+            "--test-percent" => {
+                opts.test_percent = it
+                    .next()
+                    .and_then(|n| n.parse().ok())
+                    .filter(|n| *n <= 100)
+                    .ok_or("--test-percent needs a number from 0 to 100")?
+            }
             "--history" => {
                 opts.sft.history = it
                     .next()
@@ -68,8 +75,8 @@ fn main() -> ExitCode {
             for s in &m.sessions {
                 let status = s.skipped.as_deref().unwrap_or("ok");
                 println!(
-                    "{} {:<24} {:>4} steps {:>4} sft {:>3} dpo  {status}",
-                    s.session_id, s.binary, s.steps, s.sft, s.dpo
+                    "{} {:<24} {:>4} steps {:>4} sft {:>3} dpo  {:<5} {status}",
+                    s.session_id, s.binary, s.steps, s.sft, s.dpo, s.split
                 );
             }
             println!(
@@ -78,6 +85,16 @@ fn main() -> ExitCode {
                 m.sft_examples,
                 m.dpo_pairs,
                 out.display()
+            );
+            println!(
+                "split by binary and shared code: train {} / test {} trajectories{}",
+                m.train.trajectories,
+                m.test.trajectories,
+                if m.sft_duplicates > 0 {
+                    format!(", {} duplicate SFT examples dropped", m.sft_duplicates)
+                } else {
+                    String::new()
+                }
             );
             ExitCode::SUCCESS
         }

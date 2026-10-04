@@ -8,15 +8,42 @@ use serde::{Deserialize, Serialize};
 use crate::dpo::preference_pairs;
 use crate::record::{trajectory, Trajectory};
 use crate::sft::{sft_examples, SftOptions};
+use crate::split::assign_splits;
 
 /// What to export.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportOptions {
     /// Session ids to export; empty means every session in the store.
     pub sessions: Vec<String>,
     pub sft: SftOptions,
     /// Also export sessions whose hash chain does not verify (marked `verified: false`).
     pub allow_unverified: bool,
+    /// Share of groups (not records) assigned to the test split.
+    #[serde(default = "ten")]
+    pub test_percent: u8,
+}
+
+fn ten() -> u8 {
+    10
+}
+
+impl Default for ExportOptions {
+    fn default() -> Self {
+        Self {
+            sessions: Vec::new(),
+            sft: SftOptions::default(),
+            allow_unverified: false,
+            test_percent: ten(),
+        }
+    }
+}
+
+/// Record counts of one split.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SplitCounts {
+    pub trajectories: usize,
+    pub sft: usize,
+    pub dpo: usize,
 }
 
 /// One exported (or skipped) session.
@@ -29,6 +56,11 @@ pub struct SessionEntry {
     pub steps: usize,
     pub sft: usize,
     pub dpo: usize,
+    /// Its group and split (empty when skipped).
+    #[serde(default)]
+    pub group: String,
+    #[serde(default)]
+    pub split: String,
     /// Why the session was left out, if it was.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skipped: Option<String>,
@@ -44,6 +76,13 @@ pub struct Manifest {
     pub trajectories: usize,
     pub sft_examples: usize,
     pub dpo_pairs: usize,
+    /// SFT examples dropped because the same prompt and answer were already exported.
+    #[serde(default)]
+    pub sft_duplicates: usize,
+    #[serde(default)]
+    pub train: SplitCounts,
+    #[serde(default)]
+    pub test: SplitCounts,
 }
 
 /// Errors while exporting.
@@ -125,6 +164,8 @@ pub fn collect(
             steps: t.steps.len(),
             sft: 0,
             dpo: 0,
+            group: String::new(),
+            split: String::new(),
             skipped: skipped.clone(),
         });
         if skipped.is_none() {
@@ -152,20 +193,36 @@ pub fn collect(
 /// ```
 pub fn export(store: &Store, dir: &Path, opts: &ExportOptions) -> Result<Manifest, ExportError> {
     std::fs::create_dir_all(dir)?;
-    let (trajectories, mut entries) = collect(store, opts)?;
+    let (mut trajectories, mut entries) = collect(store, opts)?;
+    assign_splits(&mut trajectories, opts.test_percent);
+    let mut seen = std::collections::HashSet::new();
+    let (mut train, mut test, mut duplicates) = (SplitCounts::default(), SplitCounts::default(), 0);
     let mut traj = BufWriter::new(File::create(dir.join("trajectories.jsonl"))?);
     let mut sft = BufWriter::new(File::create(dir.join("sft.jsonl"))?);
     let mut dpo = BufWriter::new(File::create(dir.join("dpo.jsonl"))?);
     let (mut n_sft, mut n_dpo) = (0, 0);
     for t in &trajectories {
-        let ex = sft_examples(t, &opts.sft);
+        let mut ex = sft_examples(t, &opts.sft);
+        let before = ex.len();
+        ex.retain(|e| seen.insert(serde_json::to_string(&e.messages).unwrap_or_default()));
+        duplicates += before - ex.len();
         let pairs = preference_pairs(t, opts.sft.history);
+        let counts = if t.split == "test" {
+            &mut test
+        } else {
+            &mut train
+        };
+        counts.trajectories += 1;
+        counts.sft += ex.len();
+        counts.dpo += pairs.len();
         jsonl(&mut traj, std::slice::from_ref(t))?;
         jsonl(&mut sft, &ex)?;
         jsonl(&mut dpo, &pairs)?;
         if let Some(e) = entries.iter_mut().find(|e| e.session_id == t.session_id) {
             e.sft = ex.len();
             e.dpo = pairs.len();
+            e.group = t.group.clone();
+            e.split = t.split.clone();
         }
         n_sft += ex.len();
         n_dpo += pairs.len();
@@ -183,6 +240,9 @@ pub fn export(store: &Store, dir: &Path, opts: &ExportOptions) -> Result<Manifes
         trajectories: trajectories.len(),
         sft_examples: n_sft,
         dpo_pairs: n_dpo,
+        sft_duplicates: duplicates,
+        train,
+        test,
     };
     std::fs::write(
         dir.join("manifest.json"),

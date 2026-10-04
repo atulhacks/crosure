@@ -51,6 +51,16 @@ class DatasetTest(unittest.TestCase):
         self.assertEqual([m["role"] for m in first], ["system", "user", "assistant"])
         self.assertNotIn("/home/", json.dumps(ds.trajectories))
 
+    def test_splits_partition_the_export(self):
+        full = load_dataset(FIXTURES / "dataset")
+        train = load_dataset(FIXTURES / "dataset", split="train")
+        test = load_dataset(FIXTURES / "dataset", split="test")
+        self.assertEqual(len(train.sft) + len(test.sft), len(full.sft))
+        self.assertEqual(len(train.trajectories) + len(test.trajectories), len(full.trajectories))
+        self.assertTrue(all(t["split"] in ("train", "test") for t in full.trajectories))
+        with self.assertRaises(ValueError):
+            load_dataset(FIXTURES / "dataset", split="validation")
+
     def test_dpo_conversion(self):
         pair = {"system": "s", "prompt": "p", "chosen": "xt strcmp", "rejected": "str http"}
         out = to_trl_dpo(pair)

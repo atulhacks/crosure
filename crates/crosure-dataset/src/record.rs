@@ -41,6 +41,9 @@ pub struct TrajStep {
     pub context: bool,
     pub parents: Vec<Link>,
     pub hash: String,
+    /// Fingerprint of the function the step targeted (`fid1:…`), if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub func_fp: Option<String>,
 }
 
 impl TrajStep {
@@ -62,7 +65,7 @@ impl TrajStep {
     ///     command: Some("xt strcmp".into()), target: None,
     ///     why: Some("the check compares strings".into()), summary: String::new(),
     ///     tags: vec![], on_key_path: true, context: false, parents: vec![],
-    ///     hash: String::new(),
+    ///     hash: String::new(), func_fp: None,
     /// };
     /// assert_eq!(s.answer(), "xt strcmp\nwhy: the check compares strings");
     /// ```
@@ -101,6 +104,13 @@ pub struct Trajectory {
     pub head_hash: String,
     pub verified: bool,
     pub steps: Vec<TrajStep>,
+    /// Trajectories that share a binary or significant code share a group,
+    /// and a group is never split between train and test.
+    #[serde(default)]
+    pub group: String,
+    /// `train` or `test` (set at export).
+    #[serde(default)]
+    pub split: String,
 }
 
 /// Builds a trajectory from a session's steps. Annotations are folded into
@@ -177,6 +187,7 @@ pub fn trajectory(session: &Session, steps: &[Step], verified: bool) -> Trajecto
                     .is_some_and(|i| i.chip.as_deref() == Some(CONTEXT_CHIP)),
                 parents: parents.remove(n.id.as_str()).unwrap_or_default(),
                 hash: n.hash.clone(),
+                func_fp: n.target.as_ref().and_then(|t| t.func_fp.clone()),
             }
         })
         .collect();
@@ -188,5 +199,7 @@ pub fn trajectory(session: &Session, steps: &[Step], verified: bool) -> Trajecto
         head_hash: session.head_hash.clone(),
         verified,
         steps,
+        group: String::new(),
+        split: String::new(),
     }
 }

@@ -12,7 +12,8 @@
       "humans_only": false,
       "history": 40
     },
-    "allow_unverified": false
+    "allow_unverified": false,
+    "test_percent": 10
   },
   "sessions": [
     {
@@ -22,10 +23,23 @@
       "verified": true,
       "steps": 13,
       "sft": 7,
-      "dpo": 0
+      "dpo": 0,
+      "group": "g_32d3b7aa6b22",
+      "split": "train"
     }
   ],
   "trajectories": 1,
   "sft_examples": 7,
-  "dpo_pairs": 0
+  "dpo_pairs": 0,
+  "sft_duplicates": 0,
+  "train": {
+    "trajectories": 1,
+    "sft": 7,
+    "dpo": 0
+  },
+  "test": {
+    "trajectories": 0,
+    "sft": 0,
+    "dpo": 0
+  }
 }

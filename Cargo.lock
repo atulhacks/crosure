@@ -526,11 +526,14 @@ dependencies = [
 name = "crosure-dataset"
 version = "0.1.0"
 dependencies = [
+ "crosure-engine",
  "crosure-graph",
  "crosure-recorder",
+ "crosure-session",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
 ]
 

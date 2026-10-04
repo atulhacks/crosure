@@ -34,6 +34,11 @@ pub struct PairMeta {
     pub rule: PairRule,
     pub chosen_seq: u64,
     pub rejected_seq: u64,
+    /// The trajectory's group and split (see `assign_splits`).
+    #[serde(default)]
+    pub group: String,
+    #[serde(default)]
+    pub split: String,
 }
 
 fn index_of(t: &Trajectory, seq: u64) -> Option<usize> {
@@ -97,6 +102,8 @@ pub fn preference_pairs(t: &Trajectory, history: usize) -> Vec<PreferencePair> {
                     rule,
                     chosen_seq: chosen.seq,
                     rejected_seq: rejected.seq,
+                    group: t.group.clone(),
+                    split: t.split.clone(),
                 },
             });
         }

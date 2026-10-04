@@ -15,8 +15,11 @@ serde.workspace = true
 serde_json.workspace = true
 crosure-recorder.workspace = true
 crosure-graph.workspace = true
+crosure-engine.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
+crosure-session.workspace = true
 tempfile.workspace = true
 rusqlite.workspace = true
 

@@ -58,6 +58,11 @@ pub struct ExampleMeta {
     pub on_key_path: bool,
     /// Hash of the step, so every example can be traced to the chain.
     pub hash: String,
+    /// The trajectory's group and split (see `assign_splits`).
+    #[serde(default)]
+    pub group: String,
+    #[serde(default)]
+    pub split: String,
 }
 
 /// One supervised example in chat format: system, context, next step.
@@ -141,6 +146,8 @@ pub fn sft_examples(t: &Trajectory, opts: &SftOptions) -> Vec<SftExample> {
                 model: s.model.clone(),
                 on_key_path: s.on_key_path,
                 hash: s.hash.clone(),
+                group: t.group.clone(),
+                split: t.split.clone(),
             },
         })
         .collect()

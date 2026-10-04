@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator, Union
+from typing import Any, Iterator, Optional, Union
 
 
 def _jsonl(path: Path) -> Iterator[dict]:
@@ -35,17 +35,29 @@ class Dataset:
         )
 
 
-def load_dataset(directory: Union[str, Path]) -> Dataset:
-    """Read ``manifest.json``, ``trajectories.jsonl``, ``sft.jsonl`` and ``dpo.jsonl``."""
+def load_dataset(directory: Union[str, Path], split: Optional[str] = None) -> Dataset:
+    """Read ``manifest.json``, ``trajectories.jsonl``, ``sft.jsonl`` and ``dpo.jsonl``.
+
+    ``split`` (``"train"`` or ``"test"``) keeps only that split. Splits are
+    assigned per group: investigations of the same binary, or of binaries
+    sharing significant code, are always on the same side.
+    """
     d = Path(directory)
     manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("format") != "crosure.dataset.v1":
         raise ValueError(f"not a Crosure dataset: {manifest.get('format')!r}")
+    if split not in (None, "train", "test"):
+        raise ValueError(f"split must be 'train' or 'test', not {split!r}")
+
+    def keep(record_split: Optional[str]) -> bool:
+        # Exports from before splits existed have none: everything is train.
+        return split is None or (record_split or "train") == split
+
     return Dataset(
         manifest=manifest,
-        trajectories=list(_jsonl(d / "trajectories.jsonl")),
-        sft=list(_jsonl(d / "sft.jsonl")),
-        dpo=list(_jsonl(d / "dpo.jsonl")),
+        trajectories=[t for t in _jsonl(d / "trajectories.jsonl") if keep(t.get("split"))],
+        sft=[e for e in _jsonl(d / "sft.jsonl") if keep(e.get("meta", {}).get("split"))],
+        dpo=[p for p in _jsonl(d / "dpo.jsonl") if keep(p.get("meta", {}).get("split"))],
     )
 
 

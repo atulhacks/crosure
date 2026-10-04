@@ -81,6 +81,38 @@ Pairs come from two places in the graph:
 Tagging steps in the Inspector (lead, dead end, key step) and branching from
 older steps both make the dataset richer.
 
+## Splits
+
+Every record carries `split` (`train` or `test`) and `group`. The manifest
+gives per-split counts.
+
+Two investigations end up in the same group when either is true:
+- they looked at the **same binary** (same sha256);
+- they touched a **significant function with the same code**: the same
+  structural fingerprint, at least 12 instructions. This catches a stripped
+  copy, a relinked build or a variant that reuses code.
+
+Fingerprints found in many different binaries are statically linked library
+code and do not join groups. The cutoff is 3 binaries, or 10% of the
+binaries in the export if that is more.
+
+Each group goes to `test` by a hash of its id, about `--test-percent` of
+groups (default 10). Re-exporting gives the same split. So a model is never
+tested on a function it was trained on.
+
+SFT examples with the same prompt and answer, for example from two identical
+investigations, are exported once. The manifest reports how many were
+dropped as `sft_duplicates`.
+
+```bash
+cargo run -p crosure-dataset --bin crosure-export -- --test-percent 20 ./my-dataset
+```
+
+```python
+train = load_dataset("./my-dataset", split="train")
+test = load_dataset("./my-dataset", split="test")
+```
+
 ## Python
 
 The Python tools use the standard library only. With `pip install
