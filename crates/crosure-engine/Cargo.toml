@@ -11,6 +11,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 object.workspace = true
+gimli.workspace = true
 capstone.workspace = true
 thiserror = "2"
 

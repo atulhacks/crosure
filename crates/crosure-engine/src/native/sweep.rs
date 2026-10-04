@@ -19,6 +19,8 @@ struct Sweep {
     call_targets: BTreeSet<u64>,
     code_pointers: BTreeSet<u64>,
     stubs: BTreeMap<u64, String>,
+    /// Alignment padding runs (nop / int3), keyed by end address -> start.
+    padding: BTreeMap<u64, u64>,
 }
 
 pub(crate) fn exec_contains(sections: &[SectionInfo], addr: u64) -> Option<&SectionInfo> {
@@ -42,6 +44,7 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
         call_targets: BTreeSet::new(),
         code_pointers: BTreeSet::new(),
         stubs: BTreeMap::new(),
+        padding: BTreeMap::new(),
     };
     for sec in info.sections.iter().filter(|s| s.executable) {
         let Some(off) = sec.file_offset else { continue };
@@ -52,9 +55,16 @@ pub(crate) fn analyze(data: &[u8], l: &Loaded) -> Result<Analysis, EngineError> 
         }
         let insns = decode(&cs, &data[start..end], sec.addr, usize::MAX)?;
         let mut stub_start: Option<u64> = Some(sec.addr);
+        let mut pad_start: Option<u64> = None;
         for insn in &insns {
             let m = base_mnemonic(&insn.mnemonic);
             let next_ip = insn.addr + (insn.bytes.len() / 2) as u64;
+            if matches!(m, "nop" | "int3") {
+                let start = *pad_start.get_or_insert(insn.addr);
+                sw.padding.insert(next_ip, start);
+            } else {
+                pad_start = None;
+            }
             visit(
                 &mut sw,
                 l,
@@ -158,6 +168,18 @@ fn finish(sw: Sweep, l: &Loaded) -> Analysis {
             .entry(l.info.entry)
             .or_insert(("entry".into(), 0, "entry"));
     }
+    // `.plt` has an FDE too; its stubs are imports, not one function.
+    let in_plt = |a: u64| exec_contains(sections, a).is_some_and(|s| s.name.starts_with(".plt"));
+    for addr in l.unwind.keys().filter(|a| !in_plt(**a)) {
+        cands
+            .entry(*addr)
+            .or_insert((format!("sub_{addr:x}"), 0, "unwind"));
+    }
+    for t in &l.relocated {
+        cands
+            .entry(*t)
+            .or_insert((format!("sub_{t:x}"), 0, "data_pointer"));
+    }
     for (set, source) in [
         (&sw.call_targets, "call_target"),
         (&sw.code_pointers, "code_pointer"),
@@ -166,7 +188,19 @@ fn finish(sw: Sweep, l: &Loaded) -> Analysis {
             cands.entry(*t).or_insert((format!("sub_{t:x}"), 0, source));
         }
     }
-    cands.retain(|addr, _| exec_contains(sections, *addr).is_some());
+    // An inferred start strictly inside an unwind range is a label (switch
+    // case, `call $+5`), not a function.
+    let inside_unwind = |t: u64| {
+        l.unwind
+            .range(..t)
+            .next_back()
+            .is_some_and(|(s, n)| t < s + n)
+    };
+    cands.retain(|addr, (_, _, source)| {
+        exec_contains(sections, *addr).is_some()
+            && !(matches!(*source, "call_target" | "code_pointer" | "data_pointer")
+                && inside_unwind(*addr))
+    });
 
     let starts: Vec<u64> = cands.keys().copied().collect();
     let mut functions = Vec::with_capacity(cands.len());
@@ -175,8 +209,15 @@ fn finish(sw: Sweep, l: &Loaded) -> Analysis {
         let next = starts.get(i + 1).copied().unwrap_or(sec_end).min(sec_end);
         let size = if size > 0 {
             size
+        } else if let Some(n) = l.unwind.get(&addr) {
+            *n
         } else {
-            next.saturating_sub(addr)
+            // Up to the next start, minus the alignment padding before it.
+            let end = match sw.padding.get(&next) {
+                Some(pad) if *pad > addr => *pad,
+                _ => next,
+            };
+            end.saturating_sub(addr)
         };
         functions.push(FunctionInfo {
             addr,

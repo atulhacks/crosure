@@ -182,3 +182,26 @@ fn console_round_trip_and_errors() -> Result<(), SessionError> {
     );
     Ok(())
 }
+
+#[test]
+fn resume_refuses_a_changed_binary() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = std::env::temp_dir().join(format!("crosure-resume-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    let copy = dir.join("crackme-x64");
+    std::fs::copy(crackme(), &copy)?;
+    let store = Store::open_in_memory()?;
+    let (ws, _) = Workspace::open(&store, &copy, None)?;
+    assert!(Workspace::resume(&store, &ws.session.id).is_ok());
+
+    let mut bytes = std::fs::read(&copy)?;
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xff;
+    std::fs::write(&copy, bytes)?;
+    let err = Workspace::resume(&store, &ws.session.id).err();
+    std::fs::remove_dir_all(&dir)?;
+    assert!(
+        matches!(err, Some(SessionError::BinaryChanged { .. })),
+        "{err:?}"
+    );
+    Ok(())
+}

@@ -94,8 +94,8 @@ fn stripped_elf_still_finds_code() -> Result<(), EngineError> {
     let e = fixture("crackme-x64-stripped")?;
     assert!(e.info()?.stripped);
     let funcs = e.functions()?;
-    // main is only reachable through `lea rdi, [rip + main]` in _start
-    assert!(funcs.iter().any(|f| f.source == "code_pointer"));
+    // main (0x1227) is never called; `.eh_frame` and `lea rdi, [rip + main]` find it
+    assert!(funcs.iter().any(|f| f.addr == 0x1227 && f.size == 144));
     assert!(funcs.iter().any(|f| f.name == "strcmp@plt"));
     let strcmp = e.resolve("strcmp")?.ok_or(EngineError::Unmapped(0))?;
     let caller = e

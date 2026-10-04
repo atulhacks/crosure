@@ -3,6 +3,7 @@ mod load;
 mod pe;
 mod strings;
 mod sweep;
+mod unwind;
 
 use std::collections::BTreeMap;
 use std::path::Path;

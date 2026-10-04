@@ -68,9 +68,19 @@ impl Workspace {
     }
 
     /// Reopens a recorded session's binary and replays its renames/comments.
+    /// Fails if the file is no longer the binary the session recorded, so new
+    /// steps never attach to a different file.
     pub fn resume(store: &Store, session_id: &str) -> Result<Self, SessionError> {
         let session = store.session(session_id)?;
         let engine = NativeEngine::open(Path::new(&session.binary_path))?;
+        let found = engine.info()?.sha256;
+        if found != session.binary_sha256 {
+            return Err(SessionError::BinaryChanged {
+                path: session.binary_path.clone(),
+                expected: session.binary_sha256.clone(),
+                found,
+            });
+        }
         let mut ws = Self {
             engine: Box::new(engine),
             session,

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use object::{
     Architecture, BinaryFormat, Object, ObjectSection, ObjectSymbol, ObjectSymbolTable, SectionKind,
@@ -18,6 +18,10 @@ pub(crate) struct Loaded {
     pub imports: Vec<(String, String)>,
     /// Import slot (GOT entry / IAT entry) -> import name.
     pub import_slots: BTreeMap<u64, String>,
+    /// Function ranges from `.eh_frame` / `.pdata`: start -> size.
+    pub unwind: BTreeMap<u64, u64>,
+    /// Addresses stored as pointers via load-time relocations.
+    pub relocated: BTreeSet<u64>,
 }
 
 /// `sha256:<hex>` of a buffer.
@@ -127,6 +131,8 @@ pub(crate) fn load(path: &str, data: &[u8]) -> Result<Loaded, EngineError> {
         exports,
         imports,
         import_slots,
+        unwind: super::unwind::function_ranges(&file, data),
+        relocated: super::unwind::relocated_pointers(&file, data),
     })
 }
 

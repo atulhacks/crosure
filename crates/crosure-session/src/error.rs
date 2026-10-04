@@ -15,4 +15,11 @@ pub enum SessionError {
     /// A console line that does not parse.
     #[error("bad command: {0}")]
     BadCommand(String),
+    /// The file at the session's path is no longer the binary it recorded.
+    #[error("{path} changed since the session was recorded (expected {expected}, found {found})")]
+    BinaryChanged {
+        path: String,
+        expected: String,
+        found: String,
+    },
 }
