@@ -68,6 +68,11 @@ pub enum Op {
     Finding {
         text: String,
     },
+    /// What earlier sessions recorded about the same code (matched by
+    /// fingerprint, across binaries).
+    Recall {
+        target: String,
+    },
     Verdict {
         verdict: String,
         family: Option<String>,
@@ -98,6 +103,7 @@ impl Op {
             Op::Hypothesis { .. } => StepKind::Hypothesis,
             Op::Finding { .. } => StepKind::Finding,
             Op::Verdict { .. } => StepKind::Verdict,
+            Op::Recall { .. } => StepKind::Recall,
         }
     }
 
@@ -118,6 +124,7 @@ impl Op {
             Op::Hex { len, .. } => Op::Hex { target: t, len },
             Op::Rename { name, .. } => Op::Rename { target: t, name },
             Op::Comment { text, .. } => Op::Comment { target: t, text },
+            Op::Recall { .. } => Op::Recall { target: t },
             other => other,
         }
     }

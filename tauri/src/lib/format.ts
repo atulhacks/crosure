@@ -47,6 +47,7 @@ export const KIND_COLOR: Record<StepKind, string> = {
   finding: "var(--kind-finding)",
   verdict: "var(--kind-finding)",
   annotate: "var(--kind-neutral)",
+  recall: "var(--kind-agent)",
 };
 
 /**

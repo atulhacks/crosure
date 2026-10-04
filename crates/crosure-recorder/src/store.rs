@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::chain::{genesis_hash, hex_digest, step_hash};
-use crate::schema::{MIGRATIONS, SCHEMA_SQL, SCHEMA_VERSION};
+use crate::schema::{FUNC_FP_KEY, MIGRATIONS, SCHEMA_SQL, SCHEMA_VERSION};
 use crate::{NewStep, RecorderError, Relation, Step};
 
 /// One investigation of one binary.
@@ -79,7 +79,7 @@ impl Store {
     ///
     /// ```
     /// let store = crosure_recorder::Store::open_in_memory()?;
-    /// assert_eq!(store.format_version()?, 1);
+    /// assert_eq!(store.format_version()?, 2);
     /// # Ok::<(), crosure_recorder::RecorderError>(())
     /// ```
     pub fn format_version(&self) -> Result<i64, RecorderError> {
@@ -213,6 +213,20 @@ impl Store {
             .conn
             .prepare("SELECT json FROM steps WHERE session_id = ?1 ORDER BY seq")?;
         let rows = stmt.query_map(params![session_id], |r| r.get::<_, String>(0))?;
+        let mut out = Vec::new();
+        for json in rows {
+            out.push(serde_json::from_str(&json?)?);
+        }
+        Ok(out)
+    }
+
+    /// Steps, in any session, whose target function has a fingerprint
+    /// starting with `key` (the 22-char structural key, `fid1:<hash>/`).
+    pub fn steps_with_fingerprint(&self, key: &str) -> Result<Vec<Step>, RecorderError> {
+        let sql =
+            format!("SELECT json FROM steps WHERE {FUNC_FP_KEY} = ?1 ORDER BY session_id, seq");
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params![key], |r| r.get::<_, String>(0))?;
         let mut out = Vec::new();
         for json in rows {
             out.push(serde_json::from_str(&json?)?);

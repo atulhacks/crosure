@@ -1,6 +1,6 @@
 use crate::{
-    build_cfg, BasicBlock, BinaryInfo, EngineError, FunctionInfo, Import, Instruction, StringRef,
-    Xref,
+    build_cfg, function_hash, BasicBlock, BinaryInfo, EngineError, FunctionHash, FunctionInfo,
+    Import, Instruction, StringRef, Xref,
 };
 
 /// The backend-neutral analysis surface. Every op the UI or an agent runs
@@ -31,6 +31,23 @@ pub trait Engine: Send + Sync {
     fn read_bytes(&self, addr: u64, len: usize) -> Result<Vec<u8>, EngineError>;
     /// Resolves a function or import name to an address.
     fn resolve(&self, name: &str) -> Result<Option<u64>, EngineError>;
+
+    /// Fingerprint of the function containing `addr` (see [`FunctionHash`]);
+    /// `None` outside a function or for functions too small to tell apart.
+    /// Import stubs and PLT entries get none: they are all alike.
+    fn function_hash(&self, addr: u64) -> Result<Option<FunctionHash>, EngineError> {
+        let Some(f) = self.function_at(addr)? else {
+            return Ok(None);
+        };
+        let in_plt =
+            self.info()?.sections.iter().any(|s| {
+                s.name.starts_with(".plt") && f.addr >= s.addr && f.addr < s.addr + s.size
+            });
+        if f.source == "import_stub" || in_plt {
+            return Ok(None);
+        }
+        Ok(function_hash(&self.disasm_function(f.addr)?))
+    }
 
     /// Basic blocks of the function containing `addr` (built from its disassembly).
     fn function_graph(&self, addr: u64) -> Result<Vec<BasicBlock>, EngineError> {

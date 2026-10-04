@@ -56,7 +56,7 @@ impl Workspace {
         origin: Origin,
         author: Author,
     ) -> Result<Outcome, SessionError> {
-        let done = self.execute(&op)?;
+        let done = self.execute(store, &op)?;
         let op = match (done.addr, &op) {
             // A rename is recorded against the name the function had before it.
             (Some(a), Op::Rename { .. }) => match done.result["old"].as_str() {
@@ -113,7 +113,7 @@ impl Workspace {
         }
     }
 
-    fn execute(&mut self, op: &Op) -> Result<Done, SessionError> {
+    fn execute(&mut self, store: &Store, op: &Op) -> Result<Done, SessionError> {
         let simple = |summary: String, result: Value| Done {
             result,
             summary,
@@ -172,6 +172,7 @@ impl Workspace {
                 }
             }
             Op::Decompile { target, .. } => self.decompile_fn(target)?,
+            Op::Recall { target } => self.recall(store, target)?,
             Op::XrefsTo { target, .. } => {
                 let addr = self.resolve(target)?;
                 let refs = self.rename_refs(self.engine.xrefs_to(addr)?);

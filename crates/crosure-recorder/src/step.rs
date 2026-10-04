@@ -26,6 +26,8 @@ pub enum StepKind {
     Verdict,
     /// Adds intent/tags to an earlier step without mutating it.
     Annotate,
+    /// Looked up what earlier sessions recorded about matching code.
+    Recall,
 }
 
 /// How a step relates to one of its parents.

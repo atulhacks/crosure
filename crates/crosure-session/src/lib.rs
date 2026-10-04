@@ -20,6 +20,7 @@ mod console;
 mod decomp;
 mod error;
 mod op;
+mod recall;
 mod registry;
 mod run;
 mod summary;

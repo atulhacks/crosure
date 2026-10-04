@@ -1,11 +1,19 @@
 /// Store format version, kept in SQLite's `PRAGMA user_version`. Databases
 /// from before versioning read as 0 and have the version-1 layout.
-pub(crate) const SCHEMA_VERSION: i64 = 1;
+pub(crate) const SCHEMA_VERSION: i64 = 2;
 
 /// `MIGRATIONS[i]` upgrades version `i + 1` to `i + 2`; each runs in one
 /// transaction. Never rewrite a step's `json` or `hash`: the hash chain
 /// covers them. Add columns or tables instead, and upcast old steps on read.
-pub(crate) const MIGRATIONS: &[&str] = &[];
+pub(crate) const MIGRATIONS: &[&str] = &[
+    // 1 -> 2: look steps up by the structural part of their function
+    // fingerprint (`fid1:<16 hex>/`, 22 chars) for cross-session recall.
+    "CREATE INDEX IF NOT EXISTS steps_func_fp ON steps (substr(json_extract(json, '$.target.func_fp'), 1, 22));",
+];
+
+/// The indexed expression behind [`MIGRATIONS`]' `steps_func_fp`; queries
+/// must use it verbatim for SQLite to use the index.
+pub(crate) const FUNC_FP_KEY: &str = "substr(json_extract(json, '$.target.func_fp'), 1, 22)";
 
 /// Tables: sessions, steps (append-only, one JSON document per step) and
 /// content-addressed blobs for full tool outputs.

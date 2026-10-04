@@ -17,7 +17,7 @@ fn a_pre_versioning_store_opens_and_keeps_its_sessions() -> Result<(), RecorderE
     // Simulate a store written before versioning existed.
     rusqlite::Connection::open(&path)?.pragma_update(None, "user_version", 0)?;
     let s = Store::open(&path)?;
-    assert_eq!(s.format_version()?, 1);
+    assert_eq!(s.format_version()?, 2);
     assert_eq!(s.session(&id)?.name, "old");
     drop(s);
     let _ = std::fs::remove_file(&path);
@@ -36,5 +36,14 @@ fn a_store_from_a_newer_crosure_is_refused() -> Result<(), RecorderError> {
         matches!(err, Some(RecorderError::NewerFormat { found: 99, .. })),
         "{err:?}"
     );
+    Ok(())
+}
+
+#[test]
+fn the_fingerprint_index_exists_after_migration() -> Result<(), RecorderError> {
+    let s = Store::open_in_memory()?;
+    assert!(s
+        .steps_with_fingerprint("fid1:0000000000000000/")?
+        .is_empty());
     Ok(())
 }

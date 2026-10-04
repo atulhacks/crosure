@@ -15,6 +15,7 @@ mod cfg;
 mod decompile;
 mod engine;
 mod error;
+mod fhash;
 mod native;
 mod operand;
 mod types;
@@ -26,6 +27,7 @@ pub use decompile::{
 };
 pub use engine::Engine;
 pub use error::EngineError;
+pub use fhash::{function_hash, FunctionHash, MIN_INSNS};
 pub use native::NativeEngine;
 pub use operand::{parse_branch_target, parse_rip_relative};
 pub use types::{

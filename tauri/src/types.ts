@@ -20,7 +20,8 @@ export type StepKind =
   | "hypothesis"
   | "finding"
   | "verdict"
-  | "annotate";
+  | "annotate"
+  | "recall";
 
 export type Relation = "next" | "derived_from" | "branch" | "confirms" | "refutes" | "annotates";
 
@@ -239,6 +240,7 @@ export type Op =
   | { op: "hex"; target: string; len: number | null }
   | { op: "rename"; target: string; name: string }
   | { op: "comment"; target: string; text: string }
+  | { op: "recall"; target: string }
   | { op: "hypothesis"; text: string }
   | { op: "finding"; text: string }
   | { op: "verdict"; verdict: string; family: string | null; text: string };

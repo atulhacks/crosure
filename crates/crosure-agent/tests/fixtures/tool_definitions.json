@@ -315,6 +315,29 @@
     "strict": true
   },
   {
+    "description": "What earlier investigations of other binaries recorded about this function's code (matched by a relocation-independent hash): names given, comments, findings. Check it before analysing a function from scratch; treat ambiguous matches as hints.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Function name (e.g. main, strcmp@plt) or address (0x...).",
+          "type": "string"
+        },
+        "why": {
+          "description": "One sentence: what you expect to learn from this step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "why"
+      ],
+      "type": "object"
+    },
+    "name": "recall_function",
+    "strict": true
+  },
+  {
     "description": "Pin a hypothesis you are about to test.",
     "input_schema": {
       "additionalProperties": false,

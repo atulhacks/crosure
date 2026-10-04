@@ -173,6 +173,46 @@ pub fn render_result(kind: &str, summary: &str, r: &Value, offset: usize) -> Str
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
+        "recall" => {
+            let mut lines = Vec::new();
+            if r["ambiguous"].as_bool() == Some(true) {
+                lines.push(format!(
+                    "ambiguous: this code appears {} time(s) in this binary or under several names; treat names as hints",
+                    r["copies_in_binary"]
+                ));
+            }
+            for m in r["matches"].as_array().into_iter().flatten() {
+                let list = |k: &str| {
+                    m[k].as_array()
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        })
+                        .unwrap_or_default()
+                };
+                let mut l = format!(
+                    "- {} ({} match, session \"{}\"): seen as {}",
+                    text(&m["binary"]),
+                    text(&m["level"]),
+                    text(&m["session_name"]),
+                    list("names")
+                );
+                for (k, label) in [
+                    ("renamed_to", "renamed to"),
+                    ("comments", "comments"),
+                    ("notes", "conclusions"),
+                ] {
+                    let v = list(k);
+                    if !v.is_empty() {
+                        l.push_str(&format!("; {label}: {v}"));
+                    }
+                }
+                lines.push(l);
+            }
+            clip(lines, header, 0)
+        }
         "recon" => {
             let mut v = r.clone();
             if let Some(o) = v.as_object_mut() {

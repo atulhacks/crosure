@@ -175,6 +175,16 @@ pub static OPS: &[OpSpec] = &[
         args: &[target("address", "addr", "Address (0x...)."), text("text", "The comment.")],
     },
     OpSpec {
+        op: "recall",
+        command: "recall",
+        aliases: &[],
+        tool: "recall_function",
+        summary: "What earlier investigations of other binaries recorded about this function's code (matched by a relocation-independent hash): names given, comments, findings. Check it before analysing a function from scratch; treat ambiguous matches as hints.",
+        help: "what earlier sessions found about the same code",
+        writes: false,
+        args: &[target("target", "fn|addr", TARGET_DESC)],
+    },
+    OpSpec {
         op: "hypothesis",
         command: "hyp",
         aliases: &[],

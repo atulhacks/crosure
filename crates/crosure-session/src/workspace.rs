@@ -17,6 +17,8 @@ pub struct Workspace {
     pub(crate) renames: BTreeMap<u64, String>,
     /// Analyst comments, replayed from `comment` steps.
     pub(crate) comments: BTreeMap<u64, String>,
+    /// Functions per structural hash in this binary (computed on first recall).
+    pub(crate) copies: std::cell::OnceCell<BTreeMap<String, usize>>,
 }
 
 /// Parses `0x1234` (or plain hex digits) as an address.
@@ -63,6 +65,7 @@ impl Workspace {
             session,
             renames: BTreeMap::new(),
             comments: BTreeMap::new(),
+            copies: std::cell::OnceCell::new(),
         };
         Ok((ws, step))
     }
@@ -86,6 +89,7 @@ impl Workspace {
             session,
             renames: BTreeMap::new(),
             comments: BTreeMap::new(),
+            copies: std::cell::OnceCell::new(),
         };
         for step in store.steps(session_id)? {
             let addr = step.action.get("addr").and_then(|a| a.as_u64());
@@ -144,14 +148,15 @@ impl Workspace {
             .ok_or_else(|| SessionError::Unresolved(target.into()))
     }
 
-    /// Step target for an address: hex, containing function, section.
+    /// Step target for an address: hex, containing function (with its
+    /// fingerprint, for cross-session recall), section.
     pub(crate) fn target_for(&self, addr: u64) -> Target {
-        let func = self
-            .engine
-            .function_at(addr)
-            .ok()
-            .flatten()
-            .map(|f| self.renames.get(&f.addr).cloned().unwrap_or(f.name));
+        let containing = self.engine.function_at(addr).ok().flatten();
+        let func_fp = containing
+            .as_ref()
+            .and_then(|f| self.engine.function_hash(f.addr).ok().flatten())
+            .map(|h| h.fingerprint());
+        let func = containing.map(|f| self.renames.get(&f.addr).cloned().unwrap_or(f.name));
         let section = self.engine.info().ok().and_then(|i| {
             i.sections
                 .into_iter()
@@ -161,7 +166,7 @@ impl Workspace {
         Target {
             addr: Some(format!("{addr:#x}")),
             func,
-            func_fp: None,
+            func_fp,
             section,
             name: self.display_name(addr),
         }
