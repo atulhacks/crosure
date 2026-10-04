@@ -28,6 +28,7 @@ export function toConfig(d: Draft): ProviderConfig {
     headers: d.headers ?? {},
     context_window: d.context_window ?? null,
     max_output: d.max_output ?? null,
+    stream: d.stream ?? true,
   };
 }
 

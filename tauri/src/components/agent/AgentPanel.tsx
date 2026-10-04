@@ -15,12 +15,16 @@ const SUGGESTIONS = [
 
 /** Conversations with the agent; its steps join the investigation graph live. */
 export function AgentPanel() {
-  const { status, events, running, error, refreshStatus, start, setSettingsOpen } = useAgent();
+  const { status, events, live, running, error, refreshStatus, start, setSettingsOpen } =
+    useAgent();
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     refreshStatus();
   }, [refreshStatus]);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [events.length, running]);
+  useEffect(
+    () => end.current?.scrollIntoView({ block: "end" }),
+    [events.length, running, live?.text.length, live?.thinking.length],
+  );
 
   if (!status) return <Empty title="Loading agent…" />;
   if (!status.configured) return <AgentSetup />;
@@ -45,7 +49,7 @@ export function AgentPanel() {
             ))}
           </div>
         ) : (
-          <Transcript events={events} running={running} />
+          <Transcript events={events} running={running} live={live} />
         )}
         {error && <p className="mt-2 text-xs text-bad">{error}</p>}
         <div ref={end} />

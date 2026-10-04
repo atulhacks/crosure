@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import * as api from "../api";
-import type { AgentEvent, AgentStatus, Profile, ThreadSummary } from "../types";
+import type { AgentEvent, AgentStatus, Live, Profile, ThreadSummary } from "../types";
 import { useWorkbench } from "./workbench";
 
 interface AgentState {
   status: AgentStatus | null;
   /** Everything shown for the current thread. */
   events: AgentEvent[];
+  /** The reply streaming in during a run. */
+  live: Live | null;
   threads: ThreadSummary[];
   currentThread: string | null;
   profile: Profile;
@@ -75,6 +77,7 @@ export function contextFill(events: AgentEvent[]): { used: number; limit: number
 export const useAgent = create<AgentState>((set, get) => ({
   status: null,
   events: [],
+  live: null,
   threads: [],
   currentThread: null,
   profile: "investigate",
@@ -144,6 +147,7 @@ export const useAgent = create<AgentState>((set, get) => ({
         return;
       }
       cursor = page.next;
+      set({ live: page.live ?? null });
       if (fresh || page.events.length) {
         set({ events: fresh ? page.events : [...get().events, ...page.events] });
         fresh = false;
@@ -155,7 +159,7 @@ export const useAgent = create<AgentState>((set, get) => ({
       }
       if (!page.running) break;
     }
-    set({ running: false });
+    set({ running: false, live: null });
     await syncWorkbench(false);
     await get().loadThreads();
   },

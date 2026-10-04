@@ -1,11 +1,15 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use serde_json::{json, Value};
 
 use super::extras::Extras;
 use super::http::Http;
 use super::limits::ModelLimits;
+use super::sse::{rejects_streaming, stream};
+use super::stream_anthropic::AnthropicStream;
 use super::Provider;
 use crate::tools::tool_definitions_for;
-use crate::{AgentError, Block, Entry, Stop, Transcript, Turn};
+use crate::{AgentError, Block, Entry, Sink, Stop, Transcript, Turn};
 
 /// The default Claude model.
 pub const DEFAULT_MODEL: &str = "claude-opus-5-5";
@@ -160,6 +164,9 @@ pub struct AnthropicProvider {
     claude_api: bool,
     extras: Extras,
     limits: ModelLimits,
+    stream: bool,
+    /// Set once the server refused a streaming request.
+    no_stream: AtomicBool,
     http: Http,
 }
 
@@ -177,6 +184,8 @@ impl AnthropicProvider {
             claude_api: first_party(base_url),
             extras: Extras::default(),
             limits: ModelLimits::default(),
+            stream: true,
+            no_stream: AtomicBool::new(false),
             http: Http::new()?,
         })
     }
@@ -190,6 +199,12 @@ impl AnthropicProvider {
     /// Sets the model's limits; `max_output` becomes `max_tokens`.
     pub fn with_limits(mut self, limits: ModelLimits) -> Self {
         self.limits = limits;
+        self
+    }
+
+    /// Streams replies (on by default); off, each reply arrives whole.
+    pub fn with_stream(mut self, on: bool) -> Self {
+        self.stream = on;
         self
     }
 
@@ -212,17 +227,8 @@ impl AnthropicProvider {
     }
 }
 
-impl Provider for AnthropicProvider {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    fn model(&self) -> &str {
-        &self.model
-    }
-    fn limits(&self) -> ModelLimits {
-        self.limits
-    }
-    fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
+impl AnthropicProvider {
+    fn request(&self, t: &Transcript) -> (String, Vec<(&str, String)>, Value) {
         let mut body = anthropic_request(&self.id, &self.model, t);
         if let Some(n) = self.limits.max_output {
             body["max_tokens"] = json!(n);
@@ -235,7 +241,45 @@ impl Provider for AnthropicProvider {
         let headers = self
             .extras
             .with_headers(Self::headers(&self.api_key, self.claude_api));
+        (url, headers, body)
+    }
+}
+
+impl Provider for AnthropicProvider {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn model(&self) -> &str {
+        &self.model
+    }
+    fn limits(&self) -> ModelLimits {
+        self.limits
+    }
+    fn next(&self, t: &Transcript) -> Result<Turn, AgentError> {
+        let (url, headers, body) = self.request(t);
         let resp = self.http.call(&url, &headers, Some(&body))?;
         Ok(parse_anthropic(&resp))
+    }
+    fn next_live(&self, t: &Transcript, sink: &dyn Sink) -> Result<Turn, AgentError> {
+        if !self.stream || self.no_stream.load(Ordering::Relaxed) {
+            return self.next(t);
+        }
+        let (url, headers, mut body) = self.request(t);
+        body["stream"] = json!(true);
+        let mut acc = AnthropicStream::default();
+        let read = stream(self.http.post(&url, &headers, &body), sink, &mut |d| {
+            if acc.feed(d)? {
+                sink.live(&acc.live);
+            }
+            Ok(())
+        });
+        match read {
+            Err(e) if rejects_streaming(&e) => {
+                self.no_stream.store(true, Ordering::Relaxed);
+                self.next(t)
+            }
+            Err(e) => Err(e),
+            Ok(()) => Ok(parse_anthropic(&acc.finish()?)),
+        }
     }
 }

@@ -10,7 +10,8 @@ import {
 import { useState } from "react";
 import { pendingApprovals, useAgent } from "../../store/agent";
 import { useWorkbench } from "../../store/workbench";
-import type { AgentEvent } from "../../types";
+import type { AgentEvent, Live } from "../../types";
+import { LiveReply } from "./LiveReply";
 import { splitPrompt } from "../../lib/prompt";
 import { Report } from "./Report";
 
@@ -111,7 +112,15 @@ function ApprovalCard({
 }
 
 /** The agent run: request, reasoning, every recorded tool call, and the report. */
-export function Transcript({ events, running }: { events: AgentEvent[]; running: boolean }) {
+export function Transcript({
+  events,
+  running,
+  live,
+}: {
+  events: AgentEvent[];
+  running: boolean;
+  live?: Live | null;
+}) {
   const pending = new Set(pendingApprovals(events).map((r) => r.id));
   return (
     <div className="space-y-1.5">
@@ -229,6 +238,7 @@ export function Transcript({ events, running }: { events: AgentEvent[]; running:
             );
         }
       })}
+      {running && live && <LiveReply live={live} />}
       {running && (
         <div className="flex items-center gap-2 py-1 text-xs text-muted">
           <span className="rec-dot h-1.5 w-1.5 rounded-full bg-brand" /> Working…

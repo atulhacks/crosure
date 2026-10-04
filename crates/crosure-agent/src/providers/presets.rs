@@ -62,6 +62,7 @@ pub fn presets() -> Vec<ProviderConfig> {
                 reasoning_effort: None,
                 context_window: None,
                 max_output: None,
+                stream: true,
                 headers: Default::default(),
             },
         )

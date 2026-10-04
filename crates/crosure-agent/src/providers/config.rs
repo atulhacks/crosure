@@ -55,6 +55,10 @@ pub struct ProviderConfig {
     /// Longest reply in tokens; unset keeps the protocol default.
     #[serde(default)]
     pub max_output: Option<u64>,
+    /// Stream replies (shown as they arrive; Stop ends a request at once).
+    /// Turned off automatically for a server that refuses to stream.
+    #[serde(default = "yes")]
+    pub stream: bool,
 }
 
 fn yes() -> bool {
@@ -238,7 +242,8 @@ pub fn build_provider(cfg: &ProviderConfig) -> Result<Box<dyn Provider>, AgentEr
                 key.as_deref().unwrap_or(""),
             )?
             .with_extras(cfg.extras())
-            .with_limits(cfg.limits()),
+            .with_limits(cfg.limits())
+            .with_stream(cfg.stream),
         ),
         ProviderKind::OpenaiCompatible => Box::new(
             OpenAiProvider::new(
@@ -249,7 +254,8 @@ pub fn build_provider(cfg: &ProviderConfig) -> Result<Box<dyn Provider>, AgentEr
                 cfg.strict_tools,
             )?
             .with_extras(cfg.extras())
-            .with_limits(cfg.limits()),
+            .with_limits(cfg.limits())
+            .with_stream(cfg.stream),
         ),
     })
 }

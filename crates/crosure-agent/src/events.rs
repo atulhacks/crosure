@@ -77,6 +77,18 @@ pub enum AgentEvent {
     PromptTruncated { estimated: usize, reported: usize },
 }
 
+/// The reply being streamed, shown live and never saved: the finished turn
+/// arrives as ordinary events.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Live {
+    /// Reasoning text so far.
+    pub thinking: String,
+    /// Reply text so far.
+    pub text: String,
+    /// The tool call being written, if any.
+    pub tool: Option<String>,
+}
+
 /// Where events go, and whether the user asked to stop.
 pub trait Sink: Send + Sync {
     /// Delivers one event.
@@ -88,4 +100,7 @@ pub trait Sink: Send + Sync {
     fn approve(&self, _request: &ApprovalRequest) -> bool {
         true
     }
+    /// The reply streamed so far; an empty one clears it. Sinks that show
+    /// nothing live ignore it.
+    fn live(&self, _live: &Live) {}
 }

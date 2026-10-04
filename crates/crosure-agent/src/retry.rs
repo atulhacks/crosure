@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::providers::Provider;
-use crate::{AgentConfig, AgentError, AgentEvent, Sink, Transcript, Turn};
+use crate::{AgentConfig, AgentError, AgentEvent, Live, Sink, Transcript, Turn};
 
 /// Longest single wait, whatever the server asks for.
 const MAX_WAIT: Duration = Duration::from_secs(60);
@@ -40,7 +40,7 @@ fn wait(sink: &dyn Sink, d: Duration) -> bool {
 /// Asks `provider` for the next turn, retrying temporary failures up to
 /// `cfg.max_retries` times. Each wait is announced with
 /// [`AgentEvent::Retrying`]. Returns `Ok(None)` if the analyst stopped
-/// during a wait.
+/// during a wait or while the reply was streaming.
 pub(crate) fn next_turn(
     provider: &dyn Provider,
     t: &Transcript,
@@ -49,8 +49,13 @@ pub(crate) fn next_turn(
 ) -> Result<Option<Turn>, AgentError> {
     let mut attempt = 0;
     loop {
-        match provider.next(t) {
+        let reply = provider.next_live(t, sink);
+        // The finished turn arrives as events; the live view is cleared
+        // also when the attempt failed and will be retried.
+        sink.live(&Live::default());
+        match reply {
             Ok(turn) => return Ok(Some(turn)),
+            Err(AgentError::Stopped) => return Ok(None),
             Err(e) if e.is_transient() && attempt < cfg.max_retries => {
                 let d = delay(cfg, attempt, &e);
                 attempt += 1;

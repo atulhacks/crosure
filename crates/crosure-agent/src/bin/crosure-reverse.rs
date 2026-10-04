@@ -10,22 +10,55 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use crosure_agent::{
-    build_chain, run_agent, AgentConfig, AgentEvent, AgentSettings, Provider, ScriptedProvider,
-    SessionExecutor, Sink,
+    build_chain, run_agent, AgentConfig, AgentEvent, AgentSettings, Live, Provider,
+    ScriptedProvider, SessionExecutor, Sink,
 };
 use crosure_recorder::Store;
 use crosure_session::Workspace;
 
-struct Print;
+/// Prints events to stderr; streamed text is printed as it arrives.
+#[derive(Default)]
+struct Print {
+    /// The reply text streamed so far in this turn.
+    streamed: Mutex<String>,
+    /// The last turn's streamed text, so its `message` event is not repeated.
+    last: Mutex<String>,
+}
 
 impl Sink for Print {
+    fn live(&self, live: &Live) {
+        let (Ok(mut streamed), Ok(mut last)) = (self.streamed.lock(), self.last.lock()) else {
+            return;
+        };
+        if live.text.is_empty() && live.thinking.is_empty() && live.tool.is_none() {
+            // The turn finished (or failed and will be retried).
+            if !streamed.is_empty() {
+                eprintln!();
+                *last = std::mem::take(&mut *streamed).trim().to_string();
+            }
+            return;
+        }
+        if let Some(new) = live.text.get(streamed.len()..).filter(|n| !n.is_empty()) {
+            if streamed.is_empty() {
+                eprint!("  ");
+            }
+            eprint!("{new}");
+            streamed.push_str(new);
+        }
+    }
+
     fn emit(&self, e: AgentEvent) {
         match e {
             AgentEvent::Started {
                 model, provider, ..
             } => eprintln!("· {provider} / {model}"),
             AgentEvent::Thinking { text } => eprintln!("  … {}", text.lines().next().unwrap_or("")),
-            AgentEvent::Message { text } => eprintln!("  {text}"),
+            AgentEvent::Message { text } => {
+                let shown = self.last.lock().map(|l| *l == text).unwrap_or(false);
+                if !shown {
+                    eprintln!("  {text}");
+                }
+            }
             AgentEvent::ToolCall {
                 command,
                 why,
@@ -131,7 +164,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         store: Arc::new(Mutex::new(store)),
         workspace: Arc::new(Mutex::new(Some(ws))),
     };
-    let report = run_agent(&chain, &exec, &Print, task, &AgentConfig::default())?;
+    let report = run_agent(
+        &chain,
+        &exec,
+        &Print::default(),
+        task,
+        &AgentConfig::default(),
+    )?;
     let store = exec.store.lock().map_err(|_| "lock")?;
     if !report.is_empty() {
         if let Some(ws) = exec.workspace.lock().map_err(|_| "lock")?.as_ref() {

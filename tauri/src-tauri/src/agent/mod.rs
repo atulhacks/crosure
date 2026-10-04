@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use crosure_agent::{
     build_chain, list_model_info, presets, AgentEvent, AgentSettings, ApprovalRequest, KeySource,
-    ModelInfo, Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
+    Live, ModelInfo, Provider, ProviderConfig, ProviderView, ScriptedProvider, Sink,
 };
 use serde::Serialize;
 
@@ -54,6 +54,8 @@ pub struct EventPage {
     pub events: Vec<AgentEvent>,
     pub next: usize,
     pub running: bool,
+    /// The reply being streamed, if any (not saved with the thread).
+    pub live: Option<Live>,
 }
 
 /// Threads of the open session and which one is shown.
@@ -70,6 +72,8 @@ pub struct AgentRuntime {
     threads: Mutex<ThreadStore>,
     /// Events of the thread being shown (live while it runs).
     events: Mutex<Vec<AgentEvent>>,
+    /// The reply being streamed; replaced, never appended to the log.
+    live: Mutex<Live>,
     running: AtomicBool,
     stop: AtomicBool,
     gate: approval::Gate,
@@ -87,6 +91,11 @@ impl Sink for AgentRuntime {
     fn approve(&self, request: &ApprovalRequest) -> bool {
         self.gate
             .wait(&request.id, || self.stop.load(Ordering::SeqCst))
+    }
+    fn live(&self, live: &Live) {
+        if let Ok(mut l) = self.live.lock() {
+            *l = live.clone();
+        }
     }
 }
 
@@ -106,6 +115,7 @@ impl AgentRuntime {
             settings: Mutex::new(settings),
             threads: Mutex::new(ThreadStore::new(home)),
             events: Mutex::new(Vec::new()),
+            live: Mutex::new(Live::default()),
             running: AtomicBool::new(false),
             stop: AtomicBool::new(false),
             gate: approval::Gate::default(),
@@ -240,10 +250,17 @@ impl AgentRuntime {
             next: since + events.len(),
             events,
             running: self.running.load(Ordering::SeqCst),
+            live: self
+                .live
+                .lock()
+                .ok()
+                .map(|l| l.clone())
+                .filter(|l| *l != Live::default()),
         }
     }
 
-    /// Asks the current run to stop after its in-flight call (a pending approval is denied).
+    /// Stops the current run: a streaming reply ends at once, a tool call
+    /// in progress finishes first, and a pending approval is denied.
     pub fn request_stop(&self) {
         self.stop.store(true, Ordering::SeqCst);
     }

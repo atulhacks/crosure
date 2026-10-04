@@ -138,14 +138,12 @@ recorded, auditable steps, it was adopted. Where it does not, it was left out.
 | **Profile-aware prompt.** Only offered tools are named. | Templated system prompt per profile | `prompt.rs` tests |
 | **MCP conformance:** version negotiation, `-32602`/`-32600`, batches, titles, tool hints, `structuredContent` with the step id | Zed is an MCP client; checked against the 2025-06-18 spec | `crates/crosure-mcp/tests/mcp.rs` |
 
+| **Streaming, with Stop during a request.** SSE is rebuilt into the non-streaming JSON, so parsing, transcripts and replay are unchanged. A cut-off stream is retried, never kept. A server that cannot stream is called without it. Tools run only after the whole turn. | Streams and `select!` cancellation; Zed runs tools mid-stream (not copied) | `tests/streaming.rs`: streamed and whole turns identical, Stop under 2 s against a silent server |
+
 **Next, in order:**
-1. **Streaming with Stop during a request.** Rebuild the non-streaming JSON
-   from SSE events, so parsing, transcripts and replay stay unchanged. A
-   stream that ends without a stop reason is retried, never kept. Tools still
-   run only after the whole turn has arrived.
-2. **Tool-call lifecycle in the UI:** pending, awaiting approval, running,
+1. **Tool-call lifecycle in the UI:** pending, awaiting approval, running,
    failed, stopped.
-3. **Thread titles from a cheap model,** with truncation as the fallback;
+2. **Thread titles from a cheap model,** with truncation as the fallback;
    fuzzy thread search.
 
 **Not copying.** Each of these breaks recorded, approved, atomic steps, or

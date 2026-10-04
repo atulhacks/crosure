@@ -9,6 +9,9 @@ mod limits;
 mod openai;
 mod presets;
 mod scripted;
+mod sse;
+mod stream_anthropic;
+mod stream_openai;
 
 pub use anthropic::{
     anthropic_request, compatible as anthropic_compatible, AnthropicProvider, DEFAULT_MODEL,
@@ -23,7 +26,7 @@ pub use openai::{openai_request, OpenAiProvider};
 pub use presets::presets;
 pub use scripted::ScriptedProvider;
 
-use crate::{AgentError, Transcript, Turn};
+use crate::{AgentError, Sink, Transcript, Turn};
 
 /// A model the agent can run on.
 pub trait Provider: Send + Sync {
@@ -41,4 +44,11 @@ pub trait Provider: Send + Sync {
     }
     /// Asks for the next turn.
     fn next(&self, transcript: &Transcript) -> Result<Turn, AgentError>;
+    /// Asks for the next turn, streaming it: the reply so far goes to
+    /// [`Sink::live`], and Stop ends the request at once
+    /// ([`AgentError::Stopped`]). The finished [`Turn`] is the one
+    /// [`Provider::next`] would return. By default, does not stream.
+    fn next_live(&self, transcript: &Transcript, _sink: &dyn Sink) -> Result<Turn, AgentError> {
+        self.next(transcript)
+    }
 }

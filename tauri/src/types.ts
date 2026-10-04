@@ -279,6 +279,8 @@ export interface ProviderConfig {
   context_window: number | null;
   /** Longest reply in tokens (the request's max_tokens); null keeps the default. */
   max_output: number | null;
+  /** Stream replies (live text; Stop ends a request at once). */
+  stream: boolean;
 }
 
 /** A model a server lists, with the limits it reports. */
@@ -374,8 +376,17 @@ export type AgentEvent =
   | { type: "context_trimmed"; elided: number; tokens: number }
   | { type: "prompt_truncated"; estimated: number; reported: number };
 
+/** The reply being streamed; shown live, never saved. */
+export interface Live {
+  thinking: string;
+  text: string;
+  tool: string | null;
+}
+
 export interface AgentEventPage {
   events: AgentEvent[];
   next: number;
   running: boolean;
+  /** The reply streaming in, if any. */
+  live?: Live | null;
 }

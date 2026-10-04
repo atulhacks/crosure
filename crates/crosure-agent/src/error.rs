@@ -23,6 +23,9 @@ pub enum AgentError {
     /// Network failure.
     #[error("network error: {0}")]
     Network(String),
+    /// The analyst pressed Stop while the reply was arriving.
+    #[error("stopped by the analyst")]
+    Stopped,
     /// The response did not have the expected shape.
     #[error("unexpected response: {0}")]
     Protocol(String),

@@ -149,6 +149,7 @@ describe("toConfig", () => {
       headers: {},
       context_window: null,
       max_output: null,
+      stream: true,
       enabled: true,
       key_source: "not_needed" as const,
       ready: true,
@@ -175,6 +176,7 @@ describe("isReady", () => {
       headers: {},
       context_window: null,
       max_output: null,
+      stream: true,
       enabled: true,
       key_source: "missing" as const,
     };
@@ -225,6 +227,12 @@ describe("agent helpers", () => {
     expect(contextFill([old])).toBeNull();
     const now = { ...old, context_tokens: 40_000, context_limit: 50_000 };
     expect(contextFill([old, now])).toEqual({ used: 40_000, limit: 50_000 });
+  });
+  it("shows the end of a long live reply", async () => {
+    const { tail } = await import("../components/agent/LiveReply");
+    expect(tail("short", 10)).toBe("short");
+    expect(tail("abcdefghij", 4)).toBe("…ghij");
+    expect(tail("aaaa\nbbbbbbbb", 10)).toBe("…bbbbbbbb");
   });
   it("parses typed token limits", async () => {
     const { tokens } = await import("../components/agent/ProviderAdvanced");

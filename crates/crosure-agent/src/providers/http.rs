@@ -63,18 +63,41 @@ impl Http {
             req = req.header(*k, v);
         }
         let (status, retry_after, json) = self.send(req)?;
-        match status {
-            200 => Ok(json),
-            401 | 403 => Err(AgentError::Auth(message(&json))),
-            408 | 429 | 500 | 502 | 503 | 504 | 529 => Err(AgentError::Transient {
-                status,
-                message: message(&json),
-                retry_after,
-            }),
-            _ => Err(AgentError::Api {
-                status,
-                message: message(&json),
-            }),
+        check(status, retry_after, json)
+    }
+
+    /// A POST request, for [`super::sse`] to run on its own thread.
+    pub(crate) fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, String)],
+        body: &Value,
+    ) -> reqwest::blocking::RequestBuilder {
+        let mut req = self.client.post(url).json(body);
+        for (k, v) in headers {
+            req = req.header(*k, v);
         }
+        req
+    }
+}
+
+/// Maps an HTTP status and body to the body or the matching error.
+pub(crate) fn check(
+    status: u16,
+    retry_after: Option<u64>,
+    json: Value,
+) -> Result<Value, AgentError> {
+    match status {
+        200 => Ok(json),
+        401 | 403 => Err(AgentError::Auth(message(&json))),
+        408 | 429 | 500 | 502 | 503 | 504 | 529 => Err(AgentError::Transient {
+            status,
+            message: message(&json),
+            retry_after,
+        }),
+        _ => Err(AgentError::Api {
+            status,
+            message: message(&json),
+        }),
     }
 }

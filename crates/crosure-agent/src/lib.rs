@@ -28,7 +28,7 @@ mod transcript;
 pub use agent::{run_agent, run_agent_turn, AgentConfig, Executed, Executor};
 pub use context::{elide_old_results, estimate_tokens, is_context_overflow};
 pub use error::AgentError;
-pub use events::{AgentEvent, Sink};
+pub use events::{AgentEvent, Live, Sink};
 pub use executor::SessionExecutor;
 pub use policy::{ApprovalRequest, Permission, Permissions, Profile};
 pub use prompt::system_prompt;

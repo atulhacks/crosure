@@ -150,11 +150,25 @@ network error. It retries up to 3 times, after 2s, 4s and 8s (±10%), or after
 the server's `retry-after` (at most 60s per wait). Each wait appears in the
 transcript. A rejected key, a bad request or a refusal is never retried.
 
-**Stop.** Stop is checked during retry waits and between tool calls. The
-calls a stop skips are answered with "not run", so the thread can continue
-later. A request already in flight finishes first, since providers are
-called without streaming. Unlike summarizing old turns, this costs no extra
-model call and keeps exact addresses.
+**Streaming.** Replies stream by default (Settings → provider → Advanced →
+Stream replies). Reasoning, text and the name of the tool being prepared
+appear as they arrive. That live view is never saved: the stream is rebuilt
+into the same JSON a non-streamed request returns, then parsed, stored and
+echoed back exactly as before, Anthropic thinking signatures included.
+- A stream that ends before its stop event (`message_stop`, a finish reason
+  or `[DONE]`) is a network error. It is retried and never kept as a
+  half-turn.
+- A server that refuses to stream gets the request again without streaming,
+  and is not asked to stream again.
+- Tools run only once the whole turn has arrived, so every call is still one
+  atomic, approved, recorded step.
+
+**Stop.** Stop ends a streaming request at once, even while the server is
+still reading the prompt. The request runs on a helper thread, and closing
+its connection ends generation on the server. Stop is also checked during
+retry waits and between tool calls. A tool call that is already running
+finishes first. The calls a stop skips are answered with "not run", so the
+thread can continue later.
 
 ## Profiles
 
@@ -274,6 +288,8 @@ The UI polls `agent_events(since)`. Each run emits these events:
 - `usage` (cumulative tokens, cached tokens, last prompt size against the
   budget);
 - `retrying`, `context_trimmed` and `prompt_truncated`;
+- the reply being streamed comes separately (`live` on each events page), and
+  is not part of the saved stream;
 - `finished` (report, turns, tokens), `failed` or `stopped`.
 
 The same stream is saved with the thread, so a reopened conversation looks

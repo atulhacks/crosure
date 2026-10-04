@@ -106,6 +106,17 @@ export function ProviderAdvanced({
             makes the agent elide old results sooner; it never raises the run's budget.
           </span>
         </div>
+        <label
+          className="flex items-center gap-1.5 text-muted"
+          title="Off: each reply arrives whole and Stop waits for it. Turned off automatically for servers that refuse to stream."
+        >
+          <input
+            type="checkbox"
+            checked={draft.stream ?? true}
+            onChange={(e) => set({ stream: e.target.checked })}
+          />{" "}
+          Stream replies
+        </label>
         <label className="flex flex-col gap-1">
           <span className="label">Custom headers</span>
           <textarea
