@@ -123,6 +123,39 @@ rule hit literal pools, so it runs on x86 only.
 | gcc -O2 ELF | 98.8% → **100%** | 100% |
 | Others | unchanged | unchanged |
 
+## AI architecture, compared with Zed
+
+Zed's agent (`crates/agent`, `language_model*`, `context_server`) was read
+alongside Crosure's (`crosure-agent`, `crosure-mcp`). Where Zed's design fits
+recorded, auditable steps, it was adopted. Where it does not, it was left out.
+
+| Change | Zed's approach | Evidence |
+| --- | --- | --- |
+| **Per-model limits.** Context window and output limit per provider: discovered where the server reports them, or set by the analyst. The output limit becomes `max_tokens`. | Per-model `max_token_count` / `max_output_tokens`, discovered for Anthropic, Ollama, LM Studio and llama.cpp | `tests/limits.rs`; `parse_model_list` doctest |
+| **Budget from the model.** The window lowers the run's budget, never raises it. Estimates are calibrated with the server's reported prompt size. | Usage-based context accounting | `budget.rs` unit tests |
+| **Silent truncation detected.** Ollama's OpenAI endpoint drops the start of an over-long prompt without an error. A reported size under half of what was sent triggers one warning, and later requests are trimmed to fit. | Zed sends `num_ctx` on Ollama's native API instead | `a_truncating_server_is_detected_and_the_prompt_fitted` |
+| **Cache usage** reported separately; the composer shows context fill, in amber from 80%. | Same, warning at 80% | `tests/limits.rs`; `lib.test.ts` |
+| **Profile-aware prompt.** Only offered tools are named. | Templated system prompt per profile | `prompt.rs` tests |
+| **MCP conformance:** version negotiation, `-32602`/`-32600`, batches, titles, tool hints, `structuredContent` with the step id | Zed is an MCP client; checked against the 2025-06-18 spec | `crates/crosure-mcp/tests/mcp.rs` |
+
+**Next, in order:**
+1. **Streaming with Stop during a request.** Rebuild the non-streaming JSON
+   from SSE events, so parsing, transcripts and replay stay unchanged. A
+   stream that ends without a stop reason is retried, never kept. Tools still
+   run only after the whole turn has arrived.
+2. **Tool-call lifecycle in the UI:** pending, awaiting approval, running,
+   failed, stopped.
+3. **Thread titles from a cheap model,** with truncation as the fallback;
+   fuzzy thread search.
+
+**Not copying.** Each of these breaks recorded, approved, atomic steps, or
+costs more than it gives:
+- running tools while the reply is still streaming;
+- checkpoints that rewrite history;
+- LLM summaries as compaction;
+- large built-in tables of vendor models, which go stale;
+- ACP for now: Crosure is already an MCP server, which covers external agents.
+
 ## Known limits
 
 - ARM-mode functions inside a Thumb binary are decoded as Thumb. Here
